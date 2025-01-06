@@ -1,4 +1,5 @@
 use std::env;
+use std::ops::{Add, Sub, Mul};
 
 // cell parameters including esu
 #[derive(Clone)]
@@ -22,14 +23,46 @@ struct Cell {
 // collection of experimental information for pcf-file
 #[derive(Clone)]
 struct Pcf {
-	num_refl: i32,
-	detector: String,
-	nx: i32,
-	ny: i32,
-	qx: f32,
-	qy: f32,
-	distance: f32,
-	wavelength: f32,
+    num_refl: i32,
+    detector: String,
+    nx: i32,
+    ny: i32,
+    qx: f32,
+    qy: f32,
+    distance: f32,
+    wavelength: f32,
+}
+
+// 3D vectors
+struct XYZ {
+    xyz: [f32; 3],
+}
+
+fn cross(x1: XYZ, x2: XYZ) -> XYZ {
+    let x = x1.xyz[1] * x2.xyz[2] - x1.xyz[2] * x2.xyz[1];
+    let y = x1.xyz[2] * x2.xyz[0] - x1.xyz[0] * x2.xyz[2];
+    let z = x1.xyz[0] * x2.xyz[1] - x1.xyz[1] * x2.xyz[0];
+
+    let xyz = XYZ { xyz: [x, y, z] };
+    xyz
+}
+
+fn dot(x1: XYZ, x2: XYZ) -> f32 {
+    let xy = x1.xyz[0] * x2.xyz[0] + x1.xyz[1] * x2.xyz[1] + x1.xyz[2] * x2.xyz[2];
+    xy
+}
+
+impl Add for XYZ {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self {
+            xyz: [
+                self.xyz[0] + other.xyz[0],
+                self.xyz[1] + other.xyz[1],
+                self.xyz[2] + other.xyz[2],
+            ],
+        }
+    }
 }
 
 fn main() {
@@ -37,7 +70,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     // let has_esds = false;
     let mut all_cells: Vec<Cell> = Vec::new();
-    let mut all_pcfs:  Vec<Pcf>  = Vec::new();
+    let mut all_pcfs: Vec<Pcf> = Vec::new();
     let mut cells_w_esu: Vec<Cell> = Vec::new();
     let mut cells_wo_esu: Vec<Cell> = Vec::new();
 
@@ -48,7 +81,7 @@ fn main() {
         }
         let (cell, pcf) = rd_correct(filename);
         all_cells.push(cell.clone());
-	all_pcfs.push(pcf.clone());
+        all_pcfs.push(pcf.clone());
         if cell.sg == -1 || cell.a_esu == -1.0 {
             cells_wo_esu.push(cell);
         } else {
@@ -128,7 +161,7 @@ fn main() {
     };
 
     xscaleinp(all_cells, mcell);
-    mypcf (all_pcfs);
+    mypcf(all_pcfs);
 }
 
 // compute weighted mean
@@ -189,60 +222,61 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
     };
     let mut mypcf = Pcf {
         num_refl: 0,
-	detector: String::new(),
-	nx: 0,
-	ny: 0,
-	qx: 0.0,
-	qy: 0.0,
-	distance: 0.0,
-	wavelength: 0.0,
+        detector: String::new(),
+        nx: 0,
+        ny: 0,
+        qx: 0.0,
+        qy: 0.0,
+        distance: 0.0,
+        wavelength: 0.0,
     };
 
     let correctlp = std::fs::read_to_string(filename);
 
     for l in correctlp.expect("Invalid line").lines() {
         ///////////////////////////////////////////////
-	// PCF Details                               //
+        // PCF Details                               //
         ///////////////////////////////////////////////
-    	if l.contains(" X-RAY_WAVELENGTH=") {
-	    let w: Vec<&str> = l.split_whitespace().collect();
-	    let wavelength = w[1].trim().parse::<f32>();
-	    mypcf.wavelength = wavelength.expect("Error: unable to read {wavelength} as wavelength");
-	    continue;
-	}
-	if l.contains(" DETECTOR=") {
-	    let w: Vec<&str> = l.split('=').collect();
-	    let detector = w[1];
-	    mypcf.detector = detector.to_string();
-	    continue;
-	}
-	if l.contains(" NX=") {
-		let w: Vec<&str> = l.split_whitespace().collect();
-		let x = w[1].trim().parse::<i32>();
-		mypcf.nx = x.expect("Error: unable to read {x} as NX.");
-		let x = w[3].trim().parse::<i32>();
-		mypcf.ny = x.expect("Error: unable to read {x} as NY.");
-		let x = w[5].trim().parse::<f32>();
-		mypcf.qx = x.expect("Error: unable to read {x} as QX.");
-		let x = w[7].trim().parse::<f32>();
-		mypcf.qy = x.expect("Error: unable to read {x} as QY.");
-		continue;
-	}
-	if l.contains(" DETECTOR_DISTANCE=") {
-		let w: Vec<&str> = l.split_whitespace().collect();
-		let dist = w[1].trim().parse::<f32>();
-		mypcf.distance = dist.expect("Error: unable to read {D} as detector distance.");
-		continue;
-	}
-	if l.contains(" INDEXED SPOTS") {
-		let w: Vec<&str> = l.split_whitespace().collect();
-		let x = w[7].trim().parse::<i32>();
-		mypcf.num_refl = x.expect("Error: unable to extract indexed spots from {x}.");
-		continue;
-	}
+        if l.contains(" X-RAY_WAVELENGTH=") {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let wavelength = w[1].trim().parse::<f32>();
+            mypcf.wavelength =
+                wavelength.expect("Error: unable to read {wavelength} as wavelength");
+            continue;
+        }
+        if l.contains(" DETECTOR=") {
+            let w: Vec<&str> = l.split('=').collect();
+            let detector = w[1];
+            mypcf.detector = detector.to_string();
+            continue;
+        }
+        if l.contains(" NX=") {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let x = w[1].trim().parse::<i32>();
+            mypcf.nx = x.expect("Error: unable to read {x} as NX.");
+            let x = w[3].trim().parse::<i32>();
+            mypcf.ny = x.expect("Error: unable to read {x} as NY.");
+            let x = w[5].trim().parse::<f32>();
+            mypcf.qx = x.expect("Error: unable to read {x} as QX.");
+            let x = w[7].trim().parse::<f32>();
+            mypcf.qy = x.expect("Error: unable to read {x} as QY.");
+            continue;
+        }
+        if l.contains(" DETECTOR_DISTANCE=") {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let dist = w[1].trim().parse::<f32>();
+            mypcf.distance = dist.expect("Error: unable to read {D} as detector distance.");
+            continue;
+        }
+        if l.contains(" INDEXED SPOTS") {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let x = w[7].trim().parse::<i32>();
+            mypcf.num_refl = x.expect("Error: unable to extract indexed spots from {x}.");
+            continue;
+        }
 
         ///////////////////////////////////////////////
-	// XSCALE.INP Details                        //
+        // XSCALE.INP Details                        //
         ///////////////////////////////////////////////
         if l.contains(" SPACE GROUP NUMBER ") {
             let w: Vec<&str> = l.split_whitespace().collect();
@@ -290,7 +324,7 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
                 mycell.beta_esu = beta.expect("Error ESU: unable to convert {a} to float");
                 mycell.gamma_esu = gamma.expect("Error ESU: unable to convert {a} to float");
             }
-            break;
+            continue;
         }
     }
     (mycell, mypcf)
@@ -344,23 +378,30 @@ fn xscaleinp(cells: Vec<Cell>, mcell: Cell) {
     }
 }
 
-fn mypcf (pcfs: Vec<Pcf>) {
+// extract dmin and dmax from XDS_ASCII.HKL
+fn resolution_range(xdsascii: &String, cell: &Cell) -> (f32, f32) {
+    let dmax = -f32::INFINITY;
+    let dmin = f32::INFINITY;
+
+    (dmin, dmax)
+}
+
+fn mypcf(pcfs: Vec<Pcf>) {
     let mut content = String::from("data_my\n");
     let mut id = 1;
     for x in pcfs {
         let s = format!("{:34}{}\n", "_exptl_crystal_id", id);
-    	content = content + &s;
-	id = id + 1;
-    	let s = format!("{:34}{}\n", "_cell_measurement_reflns_used", x.num_refl);
-    	content = content + &s;
-    	let s = format!("{:34}{}\n", "_exptl_absorpt_correction_type", "empirical");
-    	content = content + &s;
-    	let s = format!("{:34}{}\n", "_exptl_absorpt_correction_T_min", ".");
-    	content = content + &s;
-    	let s = format!("{:34}{}\n", "_exptl_absorpt_correction_T_max", ".");
-    	content = content + &s;
+        content = content + &s;
+        id = id + 1;
+        let s = format!("{:34}{}\n", "_cell_measurement_reflns_used", x.num_refl);
+        content = content + &s;
+        let s = format!("{:34}{}\n", "_exptl_absorpt_correction_type", "empirical");
+        content = content + &s;
+        let s = format!("{:34}{}\n", "_exptl_absorpt_correction_T_min", ".");
+        content = content + &s;
+        let s = format!("{:34}{}\n", "_exptl_absorpt_correction_T_max", ".");
+        content = content + &s;
     }
 
     std::fs::write("My.pcf", content).expect("Unable to write to PCF file");
-
 }
