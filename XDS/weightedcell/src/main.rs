@@ -1,5 +1,5 @@
 use std::env;
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 
 // cell parameters including esu
 #[derive(Clone)]
@@ -34,22 +34,44 @@ struct Pcf {
 }
 
 // 3D vectors
+#[derive(Clone)]
 struct XYZ {
     xyz: [f32; 3],
 }
 
-fn cross(x1: XYZ, x2: XYZ) -> XYZ {
-    let x = x1.xyz[1] * x2.xyz[2] - x1.xyz[2] * x2.xyz[1];
-    let y = x1.xyz[2] * x2.xyz[0] - x1.xyz[0] * x2.xyz[2];
-    let z = x1.xyz[0] * x2.xyz[1] - x1.xyz[1] * x2.xyz[0];
+fn cross(x1: &XYZ, x2: &XYZ) -> XYZ {
+    let x = &x1.xyz[1] * &x2.xyz[2] - &x1.xyz[2] * &x2.xyz[1];
+    let y = &x1.xyz[2] * &x2.xyz[0] - &x1.xyz[0] * &x2.xyz[2];
+    let z = &x1.xyz[0] * &x2.xyz[1] - &x1.xyz[1] * &x2.xyz[0];
 
     let xyz = XYZ { xyz: [x, y, z] };
     xyz
 }
 
-fn dot(x1: XYZ, x2: XYZ) -> f32 {
-    let xy = x1.xyz[0] * x2.xyz[0] + x1.xyz[1] * x2.xyz[1] + x1.xyz[2] * x2.xyz[2];
-    xy
+impl Mul for XYZ {
+    type Output = f32;
+    fn mul(self, other: XYZ) -> f32 {
+        self.xyz[0] * other.xyz[0] + self.xyz[1] * other.xyz[1] + self.xyz[2] * other.xyz[2]
+    }
+}
+
+impl Mul<f32> for XYZ {
+    type Output = Self;
+    fn mul(self, s: f32) -> Self {
+        Self {
+            xyz: [s * self.xyz[0], s * self.xyz[1], s * self.xyz[2]],
+        }
+    }
+}
+
+impl Div<f32> for XYZ {
+    type Output = Self;
+    fn div(self, d: f32) -> Self {
+        let s = 1.0 / d;
+        Self {
+            xyz: [s * self.xyz[0], s * self.xyz[1], s * self.xyz[2]],
+        }
+    }
 }
 
 impl Add for XYZ {
@@ -63,6 +85,32 @@ impl Add for XYZ {
             ],
         }
     }
+}
+
+impl Sub for XYZ {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self {
+            xyz: [
+                self.xyz[0] - other.xyz[0],
+                self.xyz[1] - other.xyz[1],
+                self.xyz[2] - other.xyz[2],
+            ],
+        }
+    }
+}
+
+fn Vol(a: &XYZ, b: &XYZ, c: &XYZ) -> f32 {
+    let cstar = cross(a, b);
+    cstar * c.clone()
+}
+
+fn recCell(a: XYZ, b: XYZ, c: XYZ) -> (XYZ, XYZ, XYZ) {
+    let V = Vol(&a, &b, &c);
+    let astar = cross(&b, &c) / V;
+    let bstar = cross(&c, &a) / V;
+    let cstar = cross(&a, &b) / V;
+    (astar, bstar, cstar)
 }
 
 fn main() {
