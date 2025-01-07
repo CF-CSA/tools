@@ -113,6 +113,15 @@ fn recCell(a: XYZ, b: XYZ, c: XYZ) -> (XYZ, XYZ, XYZ) {
     (astar, bstar, cstar)
 }
 
+// workflow:
+// - read CORRECT.LP and accumulate into cells_*
+// - compute weighted cell and esds
+// - compute reciprocal cell
+// - read XDS_ASCII.HKL to compute dmin and dmax from 
+//   weighted cell
+// - output XSCALE.INP
+// - write my.pcf
+//   TODO: provide argument '-r base' for base.HKL and base.pcf
 fn main() {
     welcome();
     let args: Vec<String> = env::args().collect();
