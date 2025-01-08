@@ -1,5 +1,8 @@
 use std::env;
 use std::ops::{Add, Div, Mul, Sub};
+use std::f32::consts::PI;
+
+const PCFFILE: &str = "my.pcf";
 
 // cell parameters including esu
 #[derive(Clone)]
@@ -23,14 +26,17 @@ struct Cell {
 // collection of experimental information for pcf-file
 #[derive(Clone)]
 struct Pcf {
-    num_refl: i32,
-    detector: String,
-    nx: i32,
-    ny: i32,
-    qx: f32,
-    qy: f32,
-    distance: f32,
-    wavelength: f32,
+    file: String,
+    num_refl: i32,                           // from CORRECT.LP
+    detector: String,                        // from CORRECT.LP
+    nx: i32,                                 // from CORRECT.LP
+    ny: i32,                                 // from CORRECT.LP
+    qx: f32,                                 // from CORRECT.LP
+    qy: f32,                                 // from CORRECT.LP
+    distance: f32,                           // from CORRECT.LP
+    wavelength: f32,                         // from CORRECT.LP
+    cellabc: (f32, f32, f32, f32, f32, f32), // from CORRECT.LP (or Cell)
+    cellesd: (f32, f32, f32, f32, f32, f32), // from CORRECT.LP ( or Cell)
 }
 
 // 3D vectors
@@ -58,6 +64,16 @@ impl Mul for XYZ {
 impl Mul<f32> for XYZ {
     type Output = Self;
     fn mul(self, s: f32) -> Self {
+        Self {
+            xyz: [s * self.xyz[0], s * self.xyz[1], s * self.xyz[2]],
+        }
+    }
+}
+
+impl Mul<i32> for XYZ {
+    type Output = Self;
+    fn mul(self, si: i32) -> Self {
+        let s = si as f32;
         Self {
             xyz: [s * self.xyz[0], s * self.xyz[1], s * self.xyz[2]],
         }
@@ -100,24 +116,40 @@ impl Sub for XYZ {
     }
 }
 
-fn Vol(a: &XYZ, b: &XYZ, c: &XYZ) -> f32 {
+fn volume(a: &XYZ, b: &XYZ, c: &XYZ) -> f32 {
     let cstar = cross(a, b);
     cstar * c.clone()
 }
 
-fn recCell(a: XYZ, b: XYZ, c: XYZ) -> (XYZ, XYZ, XYZ) {
-    let V = Vol(&a, &b, &c);
-    let astar = cross(&b, &c) / V;
-    let bstar = cross(&c, &a) / V;
-    let cstar = cross(&a, &b) / V;
+fn rec_cell(a: XYZ, b: XYZ, c: XYZ) -> (XYZ, XYZ, XYZ) {
+    let vol = volume(&a, &b, &c);
+    let astar = cross(&b, &c) / vol;
+    let bstar = cross(&c, &a) / vol;
+    let cstar = cross(&a, &b) / vol;
     (astar, bstar, cstar)
+}
+
+fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ, XYZ, XYZ) {
+    let alpha = PI / 180.0 * alpha;
+    let beta  = PI / 180.0 * beta;
+    let gamma = PI / 180.0 * gamma;
+    let avec = XYZ { xyz: [a, 0.0, 0.0] };
+    let bvec = XYZ {
+        xyz: [b * f32::cos(gamma), b * f32::sin(gamma), 0.0],
+    };
+    let c0 = c * f32::cos(beta);
+    let c1 = b * c * f32::cos(alpha) - bvec.xyz[0] * c0 / bvec.xyz[1];
+    let c2 = f32::sqrt(c * c - c0 * c0 - c1 * c1);
+    let cvec = XYZ { xyz: [c0, c1, c2] };
+
+    (avec, bvec, cvec)
 }
 
 // workflow:
 // - read CORRECT.LP and accumulate into cells_*
 // - compute weighted cell and esds
 // - compute reciprocal cell
-// - read XDS_ASCII.HKL to compute dmin and dmax from 
+// - read XDS_ASCII.HKL to compute dmin and dmax from
 //   weighted cell
 // - output XSCALE.INP
 // - write my.pcf
@@ -146,6 +178,8 @@ fn main() {
         }
     }
 
+    let sg = cells_w_esu[0].sg;
+    let mcell: Cell;
     // no esu's available, take standard average
     if cells_wo_esu.len() > 1 {
         let sigmas = vec![1.0; cells_wo_esu.len()];
@@ -167,58 +201,67 @@ fn main() {
 
         let vals: Vec<_> = cells_wo_esu.iter().map(|p| p.gamma).collect();
         let (gammamean, gammaesu) = wmean(&vals, &sigmas);
-        println!("<a> = {amean} +/- {aesu}");
-        println!("<b> = {bmean} +/- {besu}");
-        println!("<c> = {cmean} +/- {cesu}");
-        println!("<alpha> = {alphamean} +/- {alphaesu}");
-        println!("<beta> = {betamean} +/- {betaesu}");
-        println!("<gamma> = {gammamean} +/- {gammaesu}");
+        mcell = Cell {
+            file: String::new(),
+            sg: sg,
+            a: amean,
+            b: bmean,
+            c: cmean,
+            alpha: alphamean,
+            beta: betamean,
+            gamma: gammamean,
+            a_esu: aesu,
+            b_esu: besu,
+            c_esu: cesu,
+            alpha_esu: alphaesu,
+            beta_esu: betaesu,
+            gamma_esu: gammaesu,
+        };
+    } else {
+        let vals: Vec<_> = cells_w_esu.iter().map(|p| p.a).collect();
+        let esus: Vec<_> = cells_w_esu.iter().map(|p| p.a_esu).collect();
+        let (amean, aesu) = wmean(&vals, &esus);
+
+        let vals: Vec<_> = cells_w_esu.iter().map(|p| p.b).collect();
+        let esus: Vec<_> = cells_w_esu.iter().map(|p| p.b_esu).collect();
+        let (bmean, besu) = wmean(&vals, &esus);
+
+        let vals: Vec<_> = cells_w_esu.iter().map(|p| p.c).collect();
+        let esus: Vec<_> = cells_w_esu.iter().map(|p| p.c_esu).collect();
+        let (cmean, cesu) = wmean(&vals, &esus);
+
+        let vals: Vec<_> = cells_w_esu.iter().map(|p| p.alpha).collect();
+        let esus: Vec<_> = cells_w_esu.iter().map(|p| p.alpha_esu).collect();
+        let (alphamean, alphaesu) = wmean(&vals, &esus);
+
+        let vals: Vec<_> = cells_w_esu.iter().map(|p| p.beta).collect();
+        let esus: Vec<_> = cells_w_esu.iter().map(|p| p.beta_esu).collect();
+        let (betamean, betaesu) = wmean(&vals, &esus);
+
+        let vals: Vec<_> = cells_w_esu.iter().map(|p| p.gamma).collect();
+        let esus: Vec<_> = cells_w_esu.iter().map(|p| p.gamma_esu).collect();
+        let (gammamean, gammaesu) = wmean(&vals, &esus);
+
+        mcell = Cell {
+            file: String::new(),
+            sg: sg,
+            a: amean,
+            b: bmean,
+            c: cmean,
+            alpha: alphamean,
+            beta: betamean,
+            gamma: gammamean,
+            a_esu: aesu,
+            b_esu: besu,
+            c_esu: cesu,
+            alpha_esu: alphaesu,
+            beta_esu: betaesu,
+            gamma_esu: gammaesu,
+        };
     }
 
-    let vals: Vec<_> = cells_w_esu.iter().map(|p| p.a).collect();
-    let esus: Vec<_> = cells_w_esu.iter().map(|p| p.a_esu).collect();
-    let (amean, aesu) = wmean(&vals, &esus);
-
-    let vals: Vec<_> = cells_w_esu.iter().map(|p| p.b).collect();
-    let esus: Vec<_> = cells_w_esu.iter().map(|p| p.b_esu).collect();
-    let (bmean, besu) = wmean(&vals, &esus);
-
-    let vals: Vec<_> = cells_w_esu.iter().map(|p| p.c).collect();
-    let esus: Vec<_> = cells_w_esu.iter().map(|p| p.c_esu).collect();
-    let (cmean, cesu) = wmean(&vals, &esus);
-
-    let vals: Vec<_> = cells_w_esu.iter().map(|p| p.alpha).collect();
-    let esus: Vec<_> = cells_w_esu.iter().map(|p| p.alpha_esu).collect();
-    let (alphamean, alphaesu) = wmean(&vals, &esus);
-
-    let vals: Vec<_> = cells_w_esu.iter().map(|p| p.beta).collect();
-    let esus: Vec<_> = cells_w_esu.iter().map(|p| p.beta_esu).collect();
-    let (betamean, betaesu) = wmean(&vals, &esus);
-
-    let vals: Vec<_> = cells_w_esu.iter().map(|p| p.gamma).collect();
-    let esus: Vec<_> = cells_w_esu.iter().map(|p| p.gamma_esu).collect();
-    let (gammamean, gammaesu) = wmean(&vals, &esus);
-
-    let sg = cells_w_esu[0].sg;
-    let mcell = Cell {
-        file: String::new(),
-        sg: sg,
-        a: amean,
-        b: bmean,
-        c: cmean,
-        alpha: alphamean,
-        beta: betamean,
-        gamma: gammamean,
-        a_esu: aesu,
-        b_esu: besu,
-        c_esu: cesu,
-        alpha_esu: alphaesu,
-        beta_esu: betaesu,
-        gamma_esu: gammaesu,
-    };
-
-    xscaleinp(all_cells, mcell);
-    mypcf(all_pcfs);
+    xscaleinp(all_cells, mcell.clone());
+    write_pcf(all_pcfs, &mcell);
 }
 
 // compute weighted mean
@@ -253,7 +296,12 @@ fn wmean(vals: &Vec<f32>, sigmas: &Vec<f32>) -> (f32, f32) {
 }
 
 fn welcome() {
-    println!("! ---> Weighted cell parameters from XDS CORRECT.LP\n");
+    println!("! ----------------> XSCALE.INP from weightedcell <--------------!");
+    println!("!  Weighted cell parameters from XDS CORRECT.LP                 !");
+    println!("!  Version 01/2025, (c) Tim Gruene                              !");
+    println!("!  tim.gruene@univie.ac.at                                      !");
+    println!("!  Experimental CIF entries written to {PCFFILE}                !\n");
+    println!("! --------------------------------------------------------------!");
 }
 
 // read CORRECT.LP; path provided by filename
@@ -278,6 +326,7 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
         gamma_esu: -1.0,
     };
     let mut mypcf = Pcf {
+        file: filename.clone(),
         num_refl: 0,
         detector: String::new(),
         nx: 0,
@@ -286,6 +335,8 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
         qy: 0.0,
         distance: 0.0,
         wavelength: 0.0,
+        cellabc: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        cellesd: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     };
 
     let correctlp = std::fs::read_to_string(filename);
@@ -384,6 +435,23 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
             continue;
         }
     }
+    // update mypcf with cell information
+    mypcf.cellabc = (
+        mycell.a,
+        mycell.b,
+        mycell.c,
+        mycell.alpha,
+        mycell.beta,
+        mycell.gamma,
+    );
+    mypcf.cellesd = (
+        mycell.a_esu,
+        mycell.b_esu,
+        mycell.c_esu,
+        mycell.alpha_esu,
+        mycell.beta_esu,
+        mycell.gamma_esu,
+    );
     (mycell, mypcf)
 }
 
@@ -404,13 +472,10 @@ fn printinp(cell: &Cell) {
     let s = cell.file.replace("CORRECT.LP", "XDS_ASCII.HKL");
     println!(" INPUT_FILE= {s}");
 }
+
 // summarise information and print as valid XSCALE.INP
 // to stdout
 fn xscaleinp(cells: Vec<Cell>, mcell: Cell) {
-    println!("! ----------------> XSCALE.INP from weightedcell <----------------");
-    println!("! ---> Weighted cell parameters from XDS CORRECT.LP");
-    println!("!      Version 01/2025, (c) Tim Gruene");
-    println!("!      tim.gruene@univie.ac.at");
     for c in &cells {
         printcell(c);
     }
@@ -435,30 +500,124 @@ fn xscaleinp(cells: Vec<Cell>, mcell: Cell) {
     }
 }
 
-// extract dmin and dmax from XDS_ASCII.HKL
+// extract dstarmin and dstarmax from XDS_ASCII.HKL
 fn resolution_range(xdsascii: &String, cell: &Cell) -> (f32, f32) {
-    let dmax = -f32::INFINITY;
-    let dmin = f32::INFINITY;
+    let mut dstarmin = f32::INFINITY;
+    let mut dstarmax = -f32::INFINITY;
 
-    (dmin, dmax)
+    let (avec, bvec, cvec) = abc2vector(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma);
+    let (astar, bstar, cstar): (XYZ, XYZ, XYZ) = rec_cell(avec, bvec, cvec);
+
+    let inp = std::fs::read_to_string(xdsascii);
+    for l in inp.expect("Invalid line").lines() {
+        let p = l.chars().nth(0);
+        if p == Some('!') {
+            continue;
+        }
+        let p: Vec<&str> = l.split_whitespace().collect();
+        let h = p[0].trim().parse::<i32>();
+        let h = h.expect("Error: unable to extract h from {p[0]}");
+        let k = p[1].trim().parse::<i32>();
+        let k = k.expect("Error: unable to extract h from {p[1]}");
+        let l = p[2].trim().parse::<i32>();
+        let l = l.expect("Error: unable to extract h from {p[2]}");
+        let dstar = reciprocal_d_spacing(h, k, l, astar.clone(), bstar.clone(), cstar.clone());
+        if dstar > dstarmax {
+            dstarmax = dstar;
+        }
+        if dstar < dstarmin {
+            dstarmin = dstar;
+        }
+    }
+    let dstarmin = f32::sqrt(dstarmin);
+    let dstarmax = f32::sqrt(dstarmax);
+
+    (dstarmin, dstarmax)
 }
 
-fn mypcf(pcfs: Vec<Pcf>) {
+// compute reciprocal resolution squared
+fn reciprocal_d_spacing(h: i32, k: i32, l: i32, a: XYZ, b: XYZ, c: XYZ) -> f32 {
+    let p: XYZ = a * h + b * k + c * l;
+    p.clone() * p
+}
+
+fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
     let mut content = String::from("data_my\n");
+    content += &String::from("loop_\n");
+    content += &String::from("_exptl_crystal_id\n");
+    content += &String::from("_cell_length_a\n");
+    content += &String::from("_cell_length_b\n");
+    content += &String::from("_cell_length_c\n");
+    content += &String::from("_cell_angle_alpha\n");
+    content += &String::from("_cell_angle_beta\n");
+    content += &String::from("_cell_angle_gamma\n");
+    content += &String::from("_cell_measurement_reflns_used\n");
+    content += &String::from("_cell_measurement_theta_min\n");
+    content += &String::from("_cell_measurement_theta_max\n");
     let mut id = 1;
     for x in pcfs {
-        let s = format!("{:34}{}\n", "_exptl_crystal_id", id);
-        content = content + &s;
-        id = id + 1;
-        let s = format!("{:34}{}\n", "_cell_measurement_reflns_used", x.num_refl);
-        content = content + &s;
-        let s = format!("{:34}{}\n", "_exptl_absorpt_correction_type", "empirical");
-        content = content + &s;
-        let s = format!("{:34}{}\n", "_exptl_absorpt_correction_T_min", ".");
-        content = content + &s;
-        let s = format!("{:34}{}\n", "_exptl_absorpt_correction_T_max", ".");
-        content = content + &s;
+        // get dmin and dmax from XDS_ASCII.HKL
+        let mut filename = x.file;
+        if std::path::Path::new(&filename).is_dir() == true {
+            filename += "/CORRECT.LP";
+        }
+        let filename = filename.replace("CORRECT.LP", "XDS_ASCII.HKL");
+        let (dstarmin, dstarmax) = resolution_range(&filename, mcell);
+        let thetamin = f32::asin(0.5 * dstarmin / x.wavelength);
+        let thetamax = f32::asin(0.5 * dstarmax / x.wavelength);
+        let (a, b, c, al, be, ga) = x.cellesd;
+        let (pa, a) = precision(a);
+        let (pb, b) = precision(b);
+        let (pc, c) = precision(c);
+        let (pal, al) = precision(al);
+        let (pbe, be) = precision(be);
+        let (pga, ga) = precision(ga);
+        let s = format!(
+            "{id:-3} \
+		 {0:0>.1$}({a}) \
+		 {2:0>.3$}({b}) \
+		 {4:0>.5$}({c}) \
+		 {6:0>.7$}({al}) \
+		 {8:0>.9$}({be}) \
+		 {10:0>.11$}({ga}) \
+		 {12:6} \
+		 {13:3.2} \
+		 {14:3.2} \
+		\n",
+            x.cellabc.0,
+            pa,
+            x.cellabc.1,
+            pb,
+            x.cellabc.2,
+            pc,
+            x.cellabc.3,
+            pal,
+            x.cellabc.4,
+            pbe,
+            x.cellabc.5,
+            pga,
+            x.num_refl,
+            thetamin,
+            thetamax
+        );
+        content += &s;
+        id += 1;
     }
 
-    std::fs::write("My.pcf", content).expect("Unable to write to PCF file");
+    std::fs::write(PCFFILE, content).expect("Unable to write to PCF file");
+}
+
+// for a number < 1 return its precision
+fn precision(x: f32) -> (usize, i32) {
+    if x <= 0.0 {
+        return (0, 0);
+    }
+    let mut v = x;
+    let mut precision = 0;
+    while v < 1.0 {
+        v *= 10.0;
+        precision += 1;
+    }
+    let p = v as i32;
+    (precision, p)
 }
