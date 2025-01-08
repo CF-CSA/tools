@@ -1,6 +1,8 @@
-use std::env;
 use std::f32::consts::PI;
 use std::ops::{Add, Div, Mul, Sub};
+
+use chrono::{TimeZone, Utc};
+use std::env;
 
 const PCFFILE: &str = "my.pcf";
 
@@ -296,11 +298,17 @@ fn wmean(vals: &Vec<f32>, sigmas: &Vec<f32>) -> (f32, f32) {
 }
 
 fn welcome() {
+    let now = match env::var("SOURCE_DATE_EPOCH") {
+    Ok(val) => { Utc.timestamp_opt(val.parse::<i64>().unwrap(), 0).unwrap() }
+        Err(_) => Utc::now(),
+        };
+    let now = now.to_string();
     println!("! ----------------> XSCALE.INP from weightedcell <--------------!");
     println!("!  Weighted cell parameters from XDS CORRECT.LP                 !");
     println!("!  Version 01/2025, (c) Tim Gruene                              !");
     println!("!  tim.gruene@univie.ac.at                                      !");
-    println!("!  Experimental CIF entries written to {PCFFILE}                !\n");
+    println!("!  Experimental CIF entries written to {:10}               !", PCFFILE);
+    println!("!  Built {:-30}                      !", now);
     println!("! --------------------------------------------------------------!");
 }
 
