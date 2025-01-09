@@ -1,10 +1,11 @@
 use std::f32::consts::PI;
+use std::process;
 use std::ops::{Add, Div, Mul, Sub};
 
 use chrono::{TimeZone, Utc};
 use std::env;
 
-const PCFFILE: &str = "my.pcf";
+const PCFFILE: &str = "weightedcell.pcf";
 
 // cell parameters including esu
 #[derive(Clone)]
@@ -164,9 +165,21 @@ fn main() {
     let mut all_pcfs: Vec<Pcf> = Vec::new();
     let mut cells_w_esu: Vec<Cell> = Vec::new();
     let mut cells_wo_esu: Vec<Cell> = Vec::new();
+    let mut pcf_switch: bool = false;
 
     for idx in 1..args.len() {
-        let mut filename = args[idx].clone();
+	let mut filename: String;
+    	match args[idx].as_str() {
+		"-h" => {
+			usage();
+			process::exit(1);
+			},
+		"-w" => {
+			pcf_switch = true;
+			continue;
+			},
+		_ => filename = args[idx].clone(),
+	}
         if std::path::Path::new(&filename).is_dir() == true {
             filename += "/CORRECT.LP";
         }
@@ -179,11 +192,15 @@ fn main() {
             cells_w_esu.push(cell);
         }
     }
+    if all_cells.len() == 0 {
+    	usage();
+	std::process::exit(1);
+	}
 
     let sg = cells_w_esu[0].sg;
     let mcell: Cell;
     // no esu's available, take standard average
-    if cells_wo_esu.len() > 1 {
+    if cells_w_esu.len() < 1 {
         let sigmas = vec![1.0; cells_wo_esu.len()];
 
         let vals: Vec<_> = cells_wo_esu.iter().map(|p| p.a).collect();
@@ -263,7 +280,9 @@ fn main() {
     }
 
     xscaleinp(all_cells, mcell.clone());
-    write_pcf(all_pcfs, &mcell);
+    if pcf_switch == true {
+    	write_pcf(all_pcfs, &mcell);
+    }
 }
 
 // compute weighted mean
@@ -285,16 +304,23 @@ fn wmean(vals: &Vec<f32>, sigmas: &Vec<f32>) -> (f32, f32) {
 
     mean /= sumsigma2;
 
-    let mut varw: f32 = 0.0;
+    let mut sums: f32 = 0.0;
     let mut sumw: f32 = 0.0;
     for it in vals.iter().zip(sigmas.iter()) {
         let (x, s) = it;
-        varw += *s * (*x - mean) * (*x - mean);
-        sumw += *s;
+	let w = 1.0 - (mean - *x) * (mean - *x) / (mean*mean);
+        sums += w * *s;
+        sumw += w;
     }
-    let sigma: f32 = (varw / sumw).sqrt();
+    let sigma: f32 = sums/ sumw;
 
     (mean, sigma)
+}
+
+fn usage() {
+	println!("Usage: weightedcell <one of more CORRECT.LP> [-w]\n");
+	println!("      -w: Create file weightedcell.pcf with CIF keywords \
+	including some experimental data\n");
 }
 
 fn welcome() {
