@@ -183,7 +183,10 @@ fn main() {
         if std::path::Path::new(&filename).is_dir() == true {
             filename += "/CORRECT.LP";
         }
-        let (cell, pcf) = rd_correct(filename);
+        let (cell, pcf) = match rd_correct(filename) {
+		Some((cell, pcf)) => (cell, pcf),
+		None  => continue,
+	};
         all_cells.push(cell.clone());
         all_pcfs.push(pcf.clone());
         if cell.sg == -1 || cell.a_esu == -1.0 {
@@ -194,6 +197,7 @@ fn main() {
     }
     if all_cells.len() == 0 {
     	usage();
+    	println!("\n---> Empty list of CORRECT.LP files <---");
 	std::process::exit(1);
 	}
 
@@ -318,9 +322,11 @@ fn wmean(vals: &Vec<f32>, sigmas: &Vec<f32>) -> (f32, f32) {
 }
 
 fn usage() {
-	println!("Usage: weightedcell <one of more CORRECT.LP> [-w]\n");
-	println!("      -w: Create file weightedcell.pcf with CIF keywords \
-	including some experimental data\n");
+	println!("Usage: weightedcell <one or more CORRECT.LP> [-w]\n");
+	println!("      -w: Create file weightedcell.pcf with CIF keywords");
+	println!("          including some experimental data\n");
+	println!("       e.g. #> weightedcell ../run | tee XSCALE.INP");
+	println!("       or   #> weightedcell ../run/CORRECT.LP | tee XSCALE.INP");
 }
 
 fn welcome() {
@@ -333,7 +339,7 @@ fn welcome() {
     println!("!  Weighted cell parameters from XDS CORRECT.LP                 !");
     println!("!  Version 01/2025, (c) Tim Gruene                              !");
     println!("!  tim.gruene@univie.ac.at                                      !");
-    println!("!  Experimental CIF entries written to {:10}               !", PCFFILE);
+    println!("!  Experimental CIF entries written to {:10}         !", PCFFILE);
     println!("!  Built {:-30}                      !", now);
     println!("! --------------------------------------------------------------!");
 }
@@ -342,7 +348,7 @@ fn welcome() {
 // assume to be valid path
 // return true if esds are available
 // if
-fn rd_correct(filename: String) -> (Cell, Pcf) {
+fn rd_correct(filename: String) -> Option<(Cell, Pcf) > {
     let mut mycell = Cell {
         file: filename.clone(),
         sg: -1,
@@ -373,9 +379,17 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
         cellesd: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     };
 
-    let correctlp = std::fs::read_to_string(filename);
+    let correctlp_result = std::fs::read_to_string(filename);
+    let correctlp = match correctlp_result {
+    	Ok(lines) => lines,
+	Err(_) => String::new(),
+	};
+    if correctlp.len() == 0 {
+    	return None;
+	}
 
-    for l in correctlp.expect("Invalid line").lines() {
+    // error handling is done, can use lines() directly
+    for l in correctlp.lines() {
         ///////////////////////////////////////////////
         // PCF Details                               //
         ///////////////////////////////////////////////
@@ -486,7 +500,7 @@ fn rd_correct(filename: String) -> (Cell, Pcf) {
         mycell.beta_esu,
         mycell.gamma_esu,
     );
-    (mycell, mypcf)
+    Some((mycell, mypcf))
 }
 
 fn printcell(cell: &Cell) {
@@ -597,8 +611,8 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
         }
         let filename = filename.replace("CORRECT.LP", "XDS_ASCII.HKL");
         let (dstarmin, dstarmax) = resolution_range(&filename, mcell);
-        let thetamin = f32::asin(0.5 * dstarmin / x.wavelength);
-        let thetamax = f32::asin(0.5 * dstarmax / x.wavelength);
+        let thetamin = f32::asin(0.5 * dstarmin * x.wavelength);
+        let thetamax = f32::asin(0.5 * dstarmax * x.wavelength);
         let (a, b, c, al, be, ga) = x.cellesd;
         let (pa, a) = precision(a);
         let (pb, b) = precision(b);
