@@ -4,7 +4,7 @@ mod geom;
 // computation of direction cosines
 
 #[derive(Clone)]
-struct XDSdatum {
+pub struct XDSdatum {
     h_: i16,
     k_: i16,
     l_: i16,
@@ -20,6 +20,23 @@ struct XDSdatum {
 }
 
 impl XDSdatum {
+    pub fn readheader(self, filename: String, verbosity: u8) -> Option(Geom) {
+       let inp = std::fs::read_to_string(filename);
+
+    }
+    pub fn readdata(self, filename: String, verbosity: u8) -> Option(Vec<XDSdatum>) {
+       let inp = match std::fs::read_to_string(filename) {
+       	Ok(inp) => inp;
+	Err(inp) => { 
+		return None;
+		}
+       }
+       for l in inp.lines() {
+       	while (l != "!END_OF_HEADER") {
+		continue;
+       }
+
+    }
     fn cosines(self, U: [f32; 9], G: Geom) {
         // coordinates in reciprocal space
         let c: [f32; 3] = [0; 3];

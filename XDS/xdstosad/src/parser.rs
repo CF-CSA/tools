@@ -1,9 +1,9 @@
 use std::env;
-pub use crate::usage::usage::usage;
+use crate::usage::usage::usage;
 
 #[derive(Clone)]
 pub struct Parser {
-	xdsascii_files_: Vec<String>,
+	xdsascii_file_: String,
 	outdir_: String,
 	outfiles_: Vec<String>,
 	recursive_: bool,
@@ -14,7 +14,7 @@ impl Parser {
 pub fn parseinput() -> Option<Parser> {
    let args: Vec<String> = env::args().collect();
    let mut myparser = Parser {
-    xdsascii_files_: Vec::new(),
+    xdsascii_file_: String::from("XDS_ASCII.HKL"),
     outdir_: String::from("./"),
     outfiles_: Vec::new(),
     recursive_: true,
