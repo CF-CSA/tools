@@ -55,21 +55,20 @@ fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ
     (avec, bvec, cvec)
 }
 
-fn getnums<const W: usize> (keyw: String, recv: &mut [f32;W]) {
-            let w: Vec<&str> = keyw.split_whitespace().collect();
-	    let mut i = 0;
-	    while i < recv.len() {
-            let part = w[i].trim().parse::<f32>();
-	    recv[i]    = match part {
-	      Ok(part) => part,
-	      Err(_) => {
-                    panic!("Cannot read data range from {}", keyw);
-                }
-            };
-	    i += 1;
-   }
-   }
-
+fn getnums<const W: usize>(keyw: String, recv: &mut [f32; W]) {
+    let w: Vec<&str> = keyw.split_whitespace().collect();
+    let mut i = 0;
+    while i < recv.len() {
+        let part = w[i].trim().parse::<f32>();
+        recv[i] = match part {
+            Ok(part) => part,
+            Err(_) => {
+                panic!("Cannot read data range from {}", keyw);
+            }
+        };
+        i += 1;
+    }
+}
 
 pub fn readheader(filename: &String) -> Option<XDSheader> {
     let inp = std::fs::read_to_string(filename);
@@ -109,84 +108,104 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
             break;
         }
         if l.contains("!DATA_RANGE=") {
-	    let mut r: [f32; 2] = [0.3; 2];
-	    getnums(l.to_string(), &mut r);
-	    xdsheader.drange_ = [ r[0] as u16, r[1] as u16];
-	    continue;
+            let mut r: [f32; 2] = [0.3; 2];
+            getnums(l.to_string(), &mut r);
+            xdsheader.drange_ = [r[0] as u16, r[1] as u16];
+            continue;
         }
-	if l.contains("!ROTATION_AXIS=") {
-	   let mut r: [f32; 3] = [0.0; 3];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.rotaxis_ = XYZ { xyz: [r[0], r[1], r[2]], };
-	   continue;
-	}
-	if l.contains("!OSCILLATION_RANGE=") {
-	   let mut r: [f32; 1] = [0.0; 1];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.oscrange_ = r[0];
-	   continue;
-	}
-	if l.contains("!STARTING_ANGLE=") {
-	   let mut r: [f32; 1] = [0.0; 1];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.phi0_ = r[0];
-	   continue;
-	}
-	if l.contains("!STARTING_FRAME=") {
-	   let mut r: [f32; 1] = [0.0; 1];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.frameno0_ = r[0] as u16;
-	   continue;
-	}
+        if l.contains("!ROTATION_AXIS=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.rotaxis_ = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
+        if l.contains("!OSCILLATION_RANGE=") {
+            let mut r: [f32; 1] = [0.0; 1];
+            getnums(l.to_string(), &mut r);
+            xdsheader.oscrange_ = r[0];
+            continue;
+        }
+        if l.contains("!STARTING_ANGLE=") {
+            let mut r: [f32; 1] = [0.0; 1];
+            getnums(l.to_string(), &mut r);
+            xdsheader.phi0_ = r[0];
+            continue;
+        }
+        if l.contains("!STARTING_FRAME=") {
+            let mut r: [f32; 1] = [0.0; 1];
+            getnums(l.to_string(), &mut r);
+            xdsheader.frameno0_ = r[0] as u16;
+            continue;
+        }
         if l.contains("!INCLUDE_RESOLUTION_RANGE=") {
-	    let mut r: [f32; 2] = [0.3; 2];
-	    getnums(l.to_string(), &mut r);
-	    xdsheader.dmin_ = r[0];
-	    xdsheader.dmax_ = r[1];
-	    continue;
+            let mut r: [f32; 2] = [0.3; 2];
+            getnums(l.to_string(), &mut r);
+            xdsheader.dmin_ = r[0];
+            xdsheader.dmax_ = r[1];
+            continue;
         }
-	if l.contains("!SPACE_GROUP_NUMBER=") {
-	   let mut r: [f32; 1] = [0.0; 1];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.SGnumber_ = r[0] as u8;
-	   continue;
+        if l.contains("!SPACE_GROUP_NUMBER=") {
+            let mut r: [f32; 1] = [0.0; 1];
+            getnums(l.to_string(), &mut r);
+            xdsheader.SGnumber_ = r[0] as u8;
+            continue;
+        }
+        if l.contains("!UNIT_CELL_CONSTANTS=") {
+            let mut r: [f32; 6] = [0.0; 6];
+            getnums(l.to_string(), &mut r);
+            xdsheader.cell_ = [r[0], r[1], r[2], r[3], r[4], r[5]];
+            continue;
+        }
+        if l.contains("!UNIT_CELL_A-AXIS=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.vecA_ = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
+        if l.contains("!UNIT_CELL_B-AXIS=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.vecB_ = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
+        if l.contains("!UNIT_CELL_C-AXIS=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.vecC_ = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
+        if l.contains("!X-RAY_WAVELENGTH=") {
+            let mut r: [f32; 1] = [0.0; 1];
+            getnums(l.to_string(), &mut r);
+            xdsheader.lambda_ = r[0];
+            continue;
+        }
+        if l.contains("!INCIDENT_BEAM_DIRECTION=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.S0_ = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
+	// NX is in line with NY, QX, QY
+	// !NX=  1028  NY=  1062    QX=  0.075000  QY=  0.075000
+        if l.contains("!NX=") {
+	let w: Vec<&str> = l.split_whitespace().collect();
+	let nx = w[1].trim().parse::<u16>();
+	let ny = w[3].trim().parse::<u16>();
+	let qx = w[5].trim().parse::<f32>();
+	let qy = w[5].trim().parse::<f32>();
 	}
-	if l.contains("!UNIT_CELL_CONSTANTS=") {
-	   let mut r: [f32; 6] = [0.0; 6];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.cell_ = [r[0], r[1], r[2], r[3], r[4], r[5]];
-	   continue;
-	}
-	if l.contains("!UNIT_CELL_A-AXIS=") {
-	   let mut r: [f32; 3] = [0.0; 3];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.vecA_ = XYZ { xyz: [r[0], r[1], r[2]], };
-	   continue;
-	}
-	if l.contains("!UNIT_CELL_B-AXIS=") {
-	   let mut r: [f32; 3] = [0.0; 3];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.vecB_ = XYZ { xyz: [r[0], r[1], r[2]], };
-	   continue;
-	}
-	if l.contains("!UNIT_CELL_C-AXIS=") {
-	   let mut r: [f32; 3] = [0.0; 3];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.vecC_ = XYZ { xyz: [r[0], r[1], r[2]], };
-	   continue;
-	}
-	if l.contains("!X-RAY_WAVELENGTH=") {
-	   let mut r: [f32; 1] = [0.0; 1];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.lambda_ = r[0] as u8;
-	   continue;
-	}
-	if l.contains("!INCIDENT_BEAM_DIRECTION=") {
-	   let mut r: [f32; 3] = [0.0; 3];
-	   getnums(l.to_string(), &mut r);
-	   xdsheader.S0_ = XYZ { xyz: [r[0], r[1], r[2]], };
-	   continue;
-	}
+
     }
-    return Some(xdsheader)
+    return Some(xdsheader);
 }
