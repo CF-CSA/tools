@@ -70,7 +70,7 @@ fn getnums<const W: usize>(keyw: String, recv: &mut [f32; W]) {
     }
 }
 
-pub fn readheader(filename: &String) -> Option<XDSheader> {
+pub fn readheader(filename: String) -> Option<XDSheader> {
     let inp = std::fs::read_to_string(filename);
     let xdslines = match inp {
         Ok(inp) => inp,
