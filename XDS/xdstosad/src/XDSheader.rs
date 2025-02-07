@@ -196,16 +196,15 @@ pub fn readheader(filename: String) -> Option<XDSheader> {
             };
             continue;
         }
-	// NX is in line with NY, QX, QY
-	// !NX=  1028  NY=  1062    QX=  0.075000  QY=  0.075000
+        // NX is in line with NY, QX, QY
+        // !NX=  1028  NY=  1062    QX=  0.075000  QY=  0.075000
         if l.contains("!NX=") {
-	let w: Vec<&str> = l.split_whitespace().collect();
-	let nx = w[1].trim().parse::<u16>();
-	let ny = w[3].trim().parse::<u16>();
-	let qx = w[5].trim().parse::<f32>();
-	let qy = w[5].trim().parse::<f32>();
-	}
-
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let nx = w[1].trim().parse::<u16>();
+            let ny = w[3].trim().parse::<u16>();
+            let qx = w[5].trim().parse::<f32>();
+            let qy = w[5].trim().parse::<f32>();
+        }
     }
     return Some(xdsheader);
 }

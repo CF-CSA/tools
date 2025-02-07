@@ -1,7 +1,7 @@
 // geometry description of the diffraction experiment
 use crate::XYZ::XYZ;
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 pub struct Geom {
     rotaxis_: XYZ,
     S0_: XYZ,
@@ -11,11 +11,10 @@ pub struct Geom {
 }
 
 impl Geom {
-	pub fn R(self) -> XYZ {
-		self.rotaxis_.clone()
-	}
-	pub fn S0(self) -> XYZ {
-		self.S0_.clone()
-	}
+    pub fn R(self) -> XYZ {
+        self.rotaxis_.clone()
+    }
+    pub fn S0(self) -> XYZ {
+        self.S0_.clone()
+    }
 }
-

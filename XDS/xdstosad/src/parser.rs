@@ -14,6 +14,9 @@ impl Parser {
     pub fn xdsascii(&self) -> String {
         return self.xdsascii_file_.clone();
     }
+    pub fn verbosity(&self) -> u8 {
+        return self.verbosity_;
+    }
     pub fn parseinput() -> Option<Parser> {
         let args: Vec<String> = env::args().collect();
         let mut myparser = Parser {

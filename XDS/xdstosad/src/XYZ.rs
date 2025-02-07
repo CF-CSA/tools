@@ -16,14 +16,14 @@ impl XYZ {
         xyz
     }
     pub fn length(self) -> f32 {
-    	let s = f32::sqrt(self * self);
-	s
+        let s = f32::sqrt(self * self);
+        s
     }
     // normalises self and returns its length
     pub fn uvec(&mut self) -> f32 {
-    	let me = *self;
-    	let s = f32::sqrt( me * (*self));
-	*self = (*self) / s;
+        let me = *self;
+        let s = f32::sqrt(me * (*self));
+        *self = (*self) / s;
         s
     }
     // computes the angle between self and another vector

@@ -20,7 +20,6 @@ pub struct XDSdatum {
     deviation_: f32,
 }
 pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
-    let inp = std::fs::read_to_string(filename);
     let mut xdsdatum = XDSdatum {
         h_: 0.0,
         k_: 0.0,
@@ -36,43 +35,31 @@ pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
         deviation_: 0.0,
     };
     let mut xdsdata: Vec<XDSdatum> = Vec::new();
-    let xdslines = match inp {
-        Ok(inp) => inp.lines(),
-        Err(_) => {
-            println!("Error reading XDS_ASCII.HKL {}", filename);
-            return None;
+    let xdslines: Vec<String> = std::fs::read_to_string(filename)
+        .expect("Failed to read XDS_ASCII.HKL")
+        .split("\n")
+        .map(|line| line.to_string())
+        .collect();
+    let it = xdslines.iter();
+    for it in xdslines {
+        if it.contains("!END_OF_HEADER") {
+            break;
         }
-    };
-    // run over the header to find the first line
-    let mut dline = String::new();
-    while dline != "!END_OF_HEADER" {
-        let dline = xdslines.next();
-        dline = match dline {
-            Some(dline) => Some(dline),
-            None => {
-                println!("Error parsing header of XDS_ASCII.HKL");
-                return None;
-            }
-        };
-        continue;
     }
-    // now dline should be !END_OF_HEADER
-    while dline != "!END_OF_DATA" {
-        let dline = xdslines.next();
-//        match dline {
- //           Some(dline) => dline,
-  //          None => {
-   //             println!("Error parsing header of XDS_ASCII.HKL");
-    //            return None;
-     //       }
-      //  };
-        xdsdatum.from_String(dline, verbosity);
+    for it in xdslines {
+        if it.contains("!END_OF_DATA") {
+            break;
+        }
+        xdsdatum.from_String(it, verbosity);
         xdsdata.push(xdsdatum);
         if verbosity > 2 {
             println!("Total data lines so far: {}", xdsdata.len());
         }
         continue;
     }
+
+    println!("Dummy return during developtment");
+    None
 }
 
 impl XDSdatum {
