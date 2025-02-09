@@ -20,7 +20,7 @@ pub struct XDSdatum {
     deviation_: f32,
 }
 pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
-    let mut xdsdatum = XDSdatum {
+    let xdsdatum = XDSdatum {
         h_: 0.0,
         k_: 0.0,
         l_: 0.0,
@@ -35,23 +35,17 @@ pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
         deviation_: 0.0,
     };
     let mut xdsdata: Vec<XDSdatum> = Vec::new();
-    let xdslines: Vec<String> = std::fs::read_to_string(filename)
+    let mut xdslines: Vec<String> = std::fs::read_to_string(filename)
         .expect("Failed to read XDS_ASCII.HKL")
         .split("\n")
         .map(|line| line.to_string())
         .collect();
-    let it = xdslines.iter();
+    xdslines.retain(|x| x.chars().nth(0) != Some('!'));
+
+	// only data lines should remain
     for it in xdslines {
-        if it.contains("!END_OF_HEADER") {
-            break;
-        }
-    }
-    for it in xdslines {
-        if it.contains("!END_OF_DATA") {
-            break;
-        }
-        xdsdatum.from_String(it, verbosity);
-        xdsdata.push(xdsdatum);
+        let datum = xdsdatum.from_String(it, verbosity);
+        xdsdata.push(xdsdatum.clone());
         if verbosity > 2 {
             println!("Total data lines so far: {}", xdsdata.len());
         }
