@@ -28,14 +28,20 @@ impl Parser {
         };
 
         for idx in 1..args.len() {
+            println!("Option: {}", args[idx]);
             match args[idx].as_str() {
                 "-h" | "-?" => {
                     usage();
                     return None;
                 }
+                // this code does not work in verbosity w/o spaces
                 "-v" => {
-                    let verbosity = args[idx + 1].parse::<u8>();
+                    let verbosity = match args[idx].len() {
+                        2 => args[idx + 1].parse::<u8>(),
+                        _ => (args[idx])[2..].parse::<u8>(),
+                    };
                     myparser.verbosity_ = verbosity.expect("Error extracting verbosity level");
+                    println!("Verbosity is {}", myparser.verbosity_);
                 }
                 _ => (),
             }

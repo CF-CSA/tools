@@ -1,8 +1,8 @@
+mod Det;
 mod Geom;
 mod XDSdatum;
 mod XDSheader;
 mod XYZ;
-mod Det;
 mod parser;
 mod usage;
 
@@ -24,14 +24,23 @@ fn main() {
             panic!("Error reading XDSheader information");
         }
     };
-    let xdsdata =
-        XDSdatum::readdata(myparser.xdsascii(), myparser.verbosity());
+    if myparser.verbosity() > 0 {
+        println!("Read header from {}", myparser.xdsascii());
+    }
+    let xdsdata = XDSdatum::readdata(myparser.xdsascii(), myparser.verbosity());
     let xdsdata = match xdsdata {
-    	Some(xdsdata) => xdsdata,
-	None      => {
-		println!("Error reading data from XDS_ASCII.HKL");
-		return ();
-		},
-		};
+        Some(xdsdata) => xdsdata,
+        None => {
+            println!("Error reading data from XDS_ASCII.HKL");
+            return ();
+        }
+    };
+    if myparser.verbosity() > 0 {
+        println!(
+            "Read {} lines of data from {}",
+            xdsdata.len(),
+            myparser.xdsascii()
+        );
+    }
     println!("Hello, world!");
 }

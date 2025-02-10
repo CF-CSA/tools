@@ -16,18 +16,18 @@ pub fn cross(x1: XYZ, x2: XYZ) -> XYZ {
 }
 
 pub fn rotate(v: XYZ, axis: XYZ, x_rad: f32) -> XYZ {
-	let s = v*axis;
-	// when v parallel to axis, just copy result
-	if s >= 0.99999 {
-		return v;
-	}
-	let uvw = cross(v, axis);
-	let xyz = cross(axis, uvw);
-	let p = f32::sqrt(1.-s*s);
-	let t = -p * f32::sin(x_rad)/f32::sqrt(xyz*xyz);
-	let res = xyz*p + uvw*t + axis*s;
-	res
-	}
+    let s = v * axis;
+    // when v parallel to axis, just copy result
+    if s >= 0.99999 {
+        return v;
+    }
+    let uvw = cross(v, axis);
+    let xyz = cross(axis, uvw);
+    let p = f32::sqrt(1. - s * s);
+    let t = -p * f32::sin(x_rad) / f32::sqrt(xyz * xyz);
+    let res = xyz * p + uvw * t + axis * s;
+    res
+}
 
 impl XYZ {
     pub fn length(self) -> f32 {

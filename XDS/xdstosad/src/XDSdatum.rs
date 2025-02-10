@@ -32,20 +32,21 @@ pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
 
     // only data lines should remain
     for it in xdslines {
-        let xdsdatum = from_String(it, verbosity);
+        if it.len() == 0 {
+            break;
+        }
+        let xdsdatum = from_dataline(it, verbosity);
         xdsdata.push(xdsdatum);
         if verbosity > 2 {
             println!("Total data lines so far: {}", xdsdata.len());
         }
         continue;
     }
-
-    println!("Dummy return during developtment");
-    None
+    return Some(xdsdata);
 }
 
 // extract entries from string
-pub fn from_String(dataline: String, verbosity: u8) -> XDSdatum {
+fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let mut xdsdatum = XDSdatum {
         h_: 0.0,
         k_: 0.0,
@@ -177,73 +178,72 @@ pub fn from_String(dataline: String, verbosity: u8) -> XDSdatum {
 }
 
 impl XDSdatum {
-    fn cosines(mut self, U: [f32; 9], G: Geom, det: Det) {
+    fn cosines(mut self, matrix_u: [f32; 9], geom: Geom, det: Det) {
         // coordinates in reciprocal space
         let mut c = XYZ {
             xyz: [
-                self.h_ * U[0] + self.k_ * U[1] + self.l_ * U[2],
-                self.h_ * U[3] + self.k_ * U[4] + self.l_ * U[5],
-                self.h_ * U[6] + self.k_ * U[7] + self.l_ * U[8],
+                self.h_ * matrix_u[0] + self.k_ * matrix_u[1] + self.l_ * matrix_u[2],
+                self.h_ * matrix_u[3] + self.k_ * matrix_u[4] + self.l_ * matrix_u[5],
+                self.h_ * matrix_u[6] + self.k_ * matrix_u[7] + self.l_ * matrix_u[8],
             ],
         };
-        // c.xyz[0] = self.h_ * U[0] + self.k_ * U[1] + self.l_ * U[2];
-        // c.xyz[1] = self.h_ * U[3] + self.k_ * U[4] + self.l_ * U[5];
-        // c.xyz[2] = self.h_ * U[6] + self.k_ * U[7] + self.l_ * U[8];
         let lc = c.uvec();
 
-        let sinetheta = 0.5 * lc * G.lambda_;
+        let sinetheta = 0.5 * lc * geom.lambda_;
         // angle of reciprocal beam (from sine theta)
         let phi = f32::atan2(
             f32::sqrt(f32::max(0.0, 1.0 - sinetheta * sinetheta)),
             sinetheta,
         );
         // angle of vector w.r.t. rotation axis
-        let phiRot = c.rad_sin_cos(G.R());
+        let phi_rot = c.rad_sin_cos(geom.R());
         // angle of vector w.r.t. direct beam
-        let phiS0 = c.rad_sin_cos(G.clone().S0());
-        let S0Rangle = G.S0().rad_sin_cos(G.R());
-        let cs = (phiRot[2] * S0Rangle[2] - phiS0[2]) / (phiRot[1] * S0Rangle[1]);
+        let phi_s0 = c.rad_sin_cos(geom.clone().S0());
+        let s0r_angle = geom.S0().rad_sin_cos(geom.R());
+        let cs = (phi_rot[2] * s0r_angle[2] - phi_s0[2]) / (phi_rot[1] * s0r_angle[1]);
         let s = f32::atan2(f32::sqrt(f32::max(0.0, 1.0 - cs * cs)), cs);
-        let r = (sinetheta - phiRot[2] * G.S0R()[2]) / (phiRot[1] * G.S0R()[1]);
+        let r = (sinetheta - phi_rot[2] * geom.S0R()[2]) / (phi_rot[1] * geom.S0R()[1]);
         let t = f32::atan2(f32::sqrt(f32::max(0.0, 1. - r * r)), r);
 
         // predicted x,y coordinates of this reflection
         let x = det.qx() * (self.xyzd_[0] - det.orgx());
         let y = det.qy() * (self.xyzd_[1] - det.orgy());
-        let e3: XYZ = det.detx() * x + det.dety() * y + det.detz() * G.D();
+        let e3: XYZ = det.detx() * x + det.dety() * y + det.detz() * geom.D();
         let mut lim = f32::INFINITY;
 
-        let mut phiRot = phiRot.clone(); 
-	let mut e2 = XYZ { xyz: [0.0; 3], };
+        let mut phi_rot = phi_rot.clone();
+        let mut e2 = XYZ { xyz: [0.0; 3] };
         for idx in 0..5 {
             let v = match idx {
                 // this construct is unclear to me and copied from the fortran source
                 0 => -t - s,
                 1 => t - s,
                 2 => s - t,
-                4 => phiRot[0],
+                4 => phi_rot[0],
                 _other => t + s,
             };
-            let crot: XYZ = crate::XYZ::rotate(c, G.R(), v);
-            let mut e1: XYZ = crate::XYZ::cross(crot, G.S0());
+            let crot: XYZ = crate::XYZ::rotate(c, geom.R(), v);
+            let mut e1: XYZ = crate::XYZ::cross(crot, geom.S0());
             e1.uvec();
             e2 = crate::XYZ::rotate(crot, e1, phi);
             let xyz = e2.rad_sin_cos(e3);
             if xyz[0] < lim {
                 lim = xyz[0];
-                phiRot[0] = v;
+                phi_rot[0] = v;
             }
             continue;
         }
-	for i in 0..3 {	
-		let mut e1 = XYZ { xyz: [ U[i+0], U[i+3], U[i+6] ] };
-		e1.uvec();
-		let e3 = crate::XYZ::rotate(e1, G.R(), phiRot[0]);
-		let xyz = e3.rad_sin_cos(G.S0());
-		let j = 2*i;
-		self.cosines_[j] = xyz[2]*(-1.0);
-		let xyz = e3.rad_sin_cos(e2);
-		self.cosines_[j+1] = xyz[2];
-		}
+        for i in 0..3 {
+            let mut e1 = XYZ {
+                xyz: [matrix_u[i + 0], matrix_u[i + 3], matrix_u[i + 6]],
+            };
+            e1.uvec();
+            let e3 = crate::XYZ::rotate(e1, geom.R(), phi_rot[0]);
+            let xyz = e3.rad_sin_cos(geom.S0());
+            let j = 2 * i;
+            self.cosines_[j] = xyz[2] * (-1.0);
+            let xyz = e3.rad_sin_cos(e2);
+            self.cosines_[j + 1] = xyz[2];
+        }
     }
 }

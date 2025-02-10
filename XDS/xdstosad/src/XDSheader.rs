@@ -44,16 +44,15 @@ fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ
 
 fn getnums<const W: usize>(keyw: String, recv: &mut [f32; W]) {
     let w: Vec<&str> = keyw.split_whitespace().collect();
-    let mut i = 0;
-    while i < recv.len() {
-        let part = w[i].trim().parse::<f32>();
+    let mut i = 1;
+    for i in 0..recv.len() {
+        let part = w[i + 1].trim().parse::<f32>();
         recv[i] = match part {
             Ok(part) => part,
             Err(_) => {
-                panic!("Cannot read data range from {}", keyw);
+                panic!("Cannot read data range from {}, got {}", keyw, recv[i]);
             }
         };
-        i += 1;
     }
 }
 
