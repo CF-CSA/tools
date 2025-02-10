@@ -2,7 +2,7 @@ use crate::XYZ::XYZ;
 use std::f32::consts::PI;
 
 pub struct XDSheader {
-    nameTemplate_: String,
+    name_template: String,
     oscrange_: f32,
     // data_range
     drange_: [u16; 2],
@@ -14,14 +14,14 @@ pub struct XDSheader {
     dmin_: f32,
     dmax_: f32,
     // space group number, 0 for unknown
-    SGnumber_: u8,
+    sg_number: u8,
     // unit cell constants
-    cell_: [f32; 6],
-    vecA_: XYZ,
-    vecB_: XYZ,
-    vecC_: XYZ,
+    cell: [f32; 6],
+    vec_a: XYZ,
+    vec_b: XYZ,
+    vec_c: XYZ,
     rotaxis_: XYZ,
-    S0_: XYZ,
+    s0: XYZ,
     detdist_: f32,
     lambda_: f32,
 }
@@ -66,24 +66,24 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
             return None;
         }
     };
-    let (vecA, vecB, vecC) = abc2vector(10., 10., 10., 90., 90., 90.);
+    let (vec_a, vec_b, vec_c) = abc2vector(10., 10., 10., 90., 90., 90.);
     let mut xdsheader = XDSheader {
-        nameTemplate_: String::new(),
+        name_template: String::new(),
         oscrange_: 0.5,
         drange_: [1, 1000],
         phi0_: 0.0,
         frameno0_: 1,
         dmin_: 0.84,
         dmax_: 999.9,
-        SGnumber_: 0,
-        cell_: [10., 10., 10., 90., 90., 90.],
-        vecA_: vecA,
-        vecB_: vecB,
-        vecC_: vecC,
+        sg_number: 0,
+        cell: [10., 10., 10., 90., 90., 90.],
+        vec_a,
+        vec_b,
+        vec_c,
         rotaxis_: XYZ {
             xyz: [1.0, 0.0, 0.0],
         },
-        S0_: XYZ {
+        s0: XYZ {
             xyz: [0.0, 0.0, 0.0],
         },
         detdist_: 580.0,
@@ -136,19 +136,19 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!SPACE_GROUP_NUMBER=") {
             let mut r: [f32; 1] = [0.0; 1];
             getnums(l.to_string(), &mut r);
-            xdsheader.SGnumber_ = r[0] as u8;
+            xdsheader.sg_number = r[0] as u8;
             continue;
         }
         if l.contains("!UNIT_CELL_CONSTANTS=") {
             let mut r: [f32; 6] = [0.0; 6];
             getnums(l.to_string(), &mut r);
-            xdsheader.cell_ = [r[0], r[1], r[2], r[3], r[4], r[5]];
+            xdsheader.cell = [r[0], r[1], r[2], r[3], r[4], r[5]];
             continue;
         }
         if l.contains("!UNIT_CELL_A-AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.vecA_ = XYZ {
+            xdsheader.vec_a = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -156,7 +156,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!UNIT_CELL_B-AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.vecB_ = XYZ {
+            xdsheader.vec_b = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -164,7 +164,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!UNIT_CELL_C-AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.vecC_ = XYZ {
+            xdsheader.vec_c = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -178,7 +178,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!INCIDENT_BEAM_DIRECTION=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.S0_ = XYZ {
+            xdsheader.s0 = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;

@@ -239,7 +239,7 @@ impl XDSdatum {
 		let mut e1 = XYZ { xyz: [ U[i+0], U[i+3], U[i+6] ] };
 		e1.uvec();
 		let e3 = crate::XYZ::rotate(e1, G.R(), phiRot[0]);
-		let xyz: XYZ = e3.rad_sin_cos(G.S0());
+		let xyz = e3.rad_sin_cos(G.S0());
 		let j = 2*i;
 		self.cosines_[j] = xyz[2]*(-1.0);
 		let xyz = e3.rad_sin_cos(e2);
