@@ -1,19 +1,6 @@
 use crate::XYZ::XYZ;
 use std::f32::consts::PI;
 
-struct Detector {
-    name_: String,
-    detx_: XYZ,
-    dety_: XYZ,
-    detz_: XYZ,
-    nx_: u16,
-    ny_: u16,
-    qx_: f32,
-    qy_: f32,
-    orgx_: f32,
-    orgy_: f32,
-}
-
 pub struct XDSheader {
     nameTemplate_: String,
     oscrange_: f32,
@@ -70,7 +57,7 @@ fn getnums<const W: usize>(keyw: String, recv: &mut [f32; W]) {
     }
 }
 
-pub fn readheader(filename: String) -> Option<XDSheader> {
+pub fn readheader(filename: &String) -> Option<XDSheader> {
     let inp = std::fs::read_to_string(filename);
     let xdslines = match inp {
         Ok(inp) => inp,

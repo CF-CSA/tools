@@ -2,6 +2,7 @@ mod Geom;
 mod XDSdatum;
 mod XDSheader;
 mod XYZ;
+mod Det;
 mod parser;
 mod usage;
 
@@ -17,7 +18,7 @@ fn main() {
             panic!("Error parsing command line parameters");
         }
     };
-    let xdsheader = match XDSheader::readheader(myparser.xdsascii()) {
+    let xdsheader = match XDSheader::readheader(&myparser.xdsascii()) {
         Some(xdsheader) => xdsheader,
         None => {
             panic!("Error reading XDSheader information");

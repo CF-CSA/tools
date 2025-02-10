@@ -17,4 +17,10 @@ impl Geom {
     pub fn S0(self) -> XYZ {
         self.S0_.clone()
     }
+    pub fn S0R(self) -> [f32; 3] {
+        self.S0R_.clone()
+    }
+    pub fn D(self) -> f32 {
+        self.D_
+    }
 }

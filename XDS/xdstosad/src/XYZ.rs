@@ -6,15 +6,30 @@ pub struct XYZ {
     pub xyz: [f32; 3],
 }
 
-impl XYZ {
-    fn cross(x1: &XYZ, x2: &XYZ) -> XYZ {
-        let x = &x1.xyz[1] * &x2.xyz[2] - &x1.xyz[2] * &x2.xyz[1];
-        let y = &x1.xyz[2] * &x2.xyz[0] - &x1.xyz[0] * &x2.xyz[2];
-        let z = &x1.xyz[0] * &x2.xyz[1] - &x1.xyz[1] * &x2.xyz[0];
+pub fn cross(x1: XYZ, x2: XYZ) -> XYZ {
+    let x = x1.xyz[1] * x2.xyz[2] - x1.xyz[2] * x2.xyz[1];
+    let y = x1.xyz[2] * x2.xyz[0] - x1.xyz[0] * x2.xyz[2];
+    let z = x1.xyz[0] * x2.xyz[1] - x1.xyz[1] * x2.xyz[0];
 
-        let xyz = XYZ { xyz: [x, y, z] };
-        xyz
-    }
+    let xyz = XYZ { xyz: [x, y, z] };
+    xyz
+}
+
+pub fn rotate(v: XYZ, axis: XYZ, x_rad: f32) -> XYZ {
+	let s = v*axis;
+	// when v parallel to axis, just copy result
+	if s >= 0.99999 {
+		return v;
+	}
+	let uvw = cross(v, axis);
+	let xyz = cross(axis, uvw);
+	let p = f32::sqrt(1.-s*s);
+	let t = -p * f32::sin(x_rad)/f32::sqrt(xyz*xyz);
+	let res = xyz*p + uvw*t + axis*s;
+	res
+	}
+
+impl XYZ {
     pub fn length(self) -> f32 {
         let s = f32::sqrt(self * self);
         s
