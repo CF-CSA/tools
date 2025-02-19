@@ -611,8 +611,8 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
         }
         let filename = filename.replace("CORRECT.LP", "XDS_ASCII.HKL");
         let (dstarmin, dstarmax) = resolution_range(&filename, mcell);
-        let thetamin = f32::asin(0.5 * dstarmin * x.wavelength);
-        let thetamax = f32::asin(0.5 * dstarmax * x.wavelength);
+        let thetamin = f32::asin(f32::min(1.0,0.5 * dstarmin * x.wavelength));
+        let thetamax = f32::asin(f32::min(1.0,0.5 * dstarmax * x.wavelength));
         let (a, b, c, al, be, ga) = x.cellesd;
         let (pa, a) = precision(a);
         let (pb, b) = precision(b);
@@ -645,8 +645,8 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
             x.cellabc.5,
             pga,
             x.num_refl,
-            thetamin,
-            thetamax
+            180.0/std::f32::consts::PI*thetamin,
+            180.0/std::f32::consts::PI*thetamax
         );
         content += &s;
         id += 1;
