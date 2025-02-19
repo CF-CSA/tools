@@ -196,10 +196,10 @@ impl XDSdatum {
             sinetheta,
         );
         // angle of vector w.r.t. rotation axis
-        let phi_rot = c.rad_sin_cos(geom.R());
+        let phi_rot = c.rad_sin_cos(geom.rotaxis());
         // angle of vector w.r.t. direct beam
-        let phi_s0 = c.rad_sin_cos(geom.clone().S0());
-        let s0r_angle = geom.S0().rad_sin_cos(geom.R());
+        let phi_s0 = c.rad_sin_cos(geom.clone().dir_beam());
+        let s0r_angle = geom.dir_beam().rad_sin_cos(geom.rotaxis());
         let cs = (phi_rot[2] * s0r_angle[2] - phi_s0[2]) / (phi_rot[1] * s0r_angle[1]);
         let s = f32::atan2(f32::sqrt(f32::max(0.0, 1.0 - cs * cs)), cs);
         let r = (sinetheta - phi_rot[2] * geom.S0R()[2]) / (phi_rot[1] * geom.S0R()[1]);
@@ -208,7 +208,7 @@ impl XDSdatum {
         // predicted x,y coordinates of this reflection
         let x = det.qx() * (self.xyzd_[0] - det.orgx());
         let y = det.qy() * (self.xyzd_[1] - det.orgy());
-        let e3: XYZ = det.detx() * x + det.dety() * y + det.detz() * geom.D();
+        let e3: XYZ = det.detx() * x + det.dety() * y + det.detz() * geom.det_dist();
         let mut lim = f32::INFINITY;
 
         let mut phi_rot = phi_rot.clone();
@@ -222,8 +222,8 @@ impl XDSdatum {
                 4 => phi_rot[0],
                 _other => t + s,
             };
-            let crot: XYZ = crate::XYZ::rotate(c, geom.R(), v);
-            let mut e1: XYZ = crate::XYZ::cross(crot, geom.S0());
+            let crot: XYZ = crate::XYZ::rotate(c, geom.rotaxis(), v);
+            let mut e1: XYZ = crate::XYZ::cross(crot, geom.dir_beam());
             e1.uvec();
             e2 = crate::XYZ::rotate(crot, e1, phi);
             let xyz = e2.rad_sin_cos(e3);
@@ -238,8 +238,8 @@ impl XDSdatum {
                 xyz: [matrix_u[i + 0], matrix_u[i + 3], matrix_u[i + 6]],
             };
             e1.uvec();
-            let e3 = crate::XYZ::rotate(e1, geom.R(), phi_rot[0]);
-            let xyz = e3.rad_sin_cos(geom.S0());
+            let e3 = crate::XYZ::rotate(e1, geom.rotaxis(), phi_rot[0]);
+            let xyz = e3.rad_sin_cos(geom.dir_beam());
             let j = 2 * i;
             self.cosines_[j] = xyz[2] * (-1.0);
             let xyz = e3.rad_sin_cos(e2);
