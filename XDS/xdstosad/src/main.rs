@@ -42,5 +42,6 @@ fn main() {
             myparser.xdsascii()
         );
     }
+    xds2sadabs(myparser.outfile);
     println!("Hello, world!");
 }
