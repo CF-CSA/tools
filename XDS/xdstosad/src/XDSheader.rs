@@ -3,16 +3,16 @@ use std::f32::consts::PI;
 
 pub struct XDSheader {
     name_template: String,
-    oscrange_: f32,
+    oscrange: f32,
     // data_range
-    drange_: [u16; 2],
+    drange: [u16; 2],
     // starting angle
-    phi0_: f32,
+    phi0: f32,
     // starting frame
-    frameno0_: u16,
+    frameno0: u16,
     // dmax, dmin
-    dmin_: f32,
-    dmax_: f32,
+    dmin: f32,
+    dmax: f32,
     // space group number, 0 for unknown
     sg_number: u8,
     // unit cell constants
@@ -20,10 +20,14 @@ pub struct XDSheader {
     vec_a: XYZ,
     vec_b: XYZ,
     vec_c: XYZ,
-    rotaxis_: XYZ,
+    rotaxis: XYZ,
     s0: XYZ,
-    detdist_: f32,
-    lambda_: f32,
+    detdist: f32,
+    nx: i32,
+    ny: i32,
+    qx: f32,
+    qy: f32,
+    lambda: f32,
 }
 
 fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ, XYZ, XYZ) {
@@ -44,7 +48,6 @@ fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ
 
 fn getnums<const W: usize>(keyw: String, recv: &mut [f32; W]) {
     let w: Vec<&str> = keyw.split_whitespace().collect();
-    let mut i = 1;
     for i in 0..recv.len() {
         let part = w[i + 1].trim().parse::<f32>();
         recv[i] = match part {
@@ -68,25 +71,25 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
     let (vec_a, vec_b, vec_c) = abc2vector(10., 10., 10., 90., 90., 90.);
     let mut xdsheader = XDSheader {
         name_template: String::new(),
-        oscrange_: 0.5,
-        drange_: [1, 1000],
-        phi0_: 0.0,
-        frameno0_: 1,
-        dmin_: 0.84,
-        dmax_: 999.9,
+        oscrange: 0.5,
+        drange: [1, 1000],
+        phi0: 0.0,
+        frameno0: 1,
+        dmin: 0.84,
+        dmax: 999.9,
         sg_number: 0,
         cell: [10., 10., 10., 90., 90., 90.],
         vec_a,
         vec_b,
         vec_c,
-        rotaxis_: XYZ {
+        rotaxis: XYZ {
             xyz: [1.0, 0.0, 0.0],
         },
         s0: XYZ {
             xyz: [0.0, 0.0, 0.0],
         },
-        detdist_: 580.0,
-        lambda_: 0.02508,
+        detdist: 580.0,
+        lambda: 0.02508,
     };
 
     for l in xdslines.lines() {
@@ -96,13 +99,13 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!DATA_RANGE=") {
             let mut r: [f32; 2] = [0.3; 2];
             getnums(l.to_string(), &mut r);
-            xdsheader.drange_ = [r[0] as u16, r[1] as u16];
+            xdsheader.drange = [r[0] as u16, r[1] as u16];
             continue;
         }
         if l.contains("!ROTATION_AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.rotaxis_ = XYZ {
+            xdsheader.rotaxis = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -110,26 +113,26 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!OSCILLATION_RANGE=") {
             let mut r: [f32; 1] = [0.0; 1];
             getnums(l.to_string(), &mut r);
-            xdsheader.oscrange_ = r[0];
+            xdsheader.oscrange = r[0];
             continue;
         }
         if l.contains("!STARTING_ANGLE=") {
             let mut r: [f32; 1] = [0.0; 1];
             getnums(l.to_string(), &mut r);
-            xdsheader.phi0_ = r[0];
+            xdsheader.phi0 = r[0];
             continue;
         }
         if l.contains("!STARTING_FRAME=") {
             let mut r: [f32; 1] = [0.0; 1];
             getnums(l.to_string(), &mut r);
-            xdsheader.frameno0_ = r[0] as u16;
+            xdsheader.frameno0 = r[0] as u16;
             continue;
         }
         if l.contains("!INCLUDE_RESOLUTION_RANGE=") {
             let mut r: [f32; 2] = [0.3; 2];
             getnums(l.to_string(), &mut r);
-            xdsheader.dmin_ = r[0];
-            xdsheader.dmax_ = r[1];
+            xdsheader.dmin = r[0];
+            xdsheader.dmax = r[1];
             continue;
         }
         if l.contains("!SPACE_GROUP_NUMBER=") {
@@ -171,7 +174,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!X-RAY_WAVELENGTH=") {
             let mut r: [f32; 1] = [0.0; 1];
             getnums(l.to_string(), &mut r);
-            xdsheader.lambda_ = r[0];
+            xdsheader.lambda = r[0];
             continue;
         }
         if l.contains("!INCIDENT_BEAM_DIRECTION=") {

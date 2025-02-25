@@ -5,7 +5,7 @@ use std::env;
 pub struct Parser {
     xdsascii_file: String,
     outdir: String,
-    outfile: Vec<String>,
+    outfile: String,
     recursive: bool,
     verbosity: u8,
 }
@@ -25,7 +25,7 @@ impl Parser {
         let mut myparser = Parser {
             xdsascii_file: String::from("XDS_ASCII.HKL"),
             outdir: String::from("./"),
-            outfile: String::from("xds.sad")
+            outfile: String::from("xds.sad"),
             recursive: true,
             verbosity: 1,
         };
@@ -43,8 +43,8 @@ impl Parser {
                         2 => args[idx + 1].parse::<u8>(),
                         _ => (args[idx])[2..].parse::<u8>(),
                     };
-                    myparser.verbosity_ = verbosity.expect("Error extracting verbosity level");
-                    println!("Verbosity is {}", myparser.verbosity_);
+                    myparser.verbosity = verbosity.expect("Error extracting verbosity level");
+                    println!("Verbosity is {}", myparser.verbosity);
                 }
                 _ => (),
             }

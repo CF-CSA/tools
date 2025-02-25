@@ -4,6 +4,7 @@ mod XDSdatum;
 mod XDSheader;
 mod XYZ;
 mod parser;
+mod xds2sadabs;
 mod usage;
 
 use crate::usage::usage::hello;
@@ -42,6 +43,6 @@ fn main() {
             myparser.xdsascii()
         );
     }
-    xds2sadabs(myparser.outfile);
+    xds2sadabs(myparser.outfile());
     println!("Hello, world!");
 }
