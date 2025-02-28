@@ -1,3 +1,4 @@
+use crate::Det::Det;
 use crate::XYZ::XYZ;
 use std::f32::consts::PI;
 
@@ -22,11 +23,8 @@ pub struct XDSheader {
     vec_c: XYZ,
     rotaxis: XYZ,
     s0: XYZ,
+    detector: Det,
     detdist: f32,
-    nx: i32,
-    ny: i32,
-    qx: f32,
-    qy: f32,
     lambda: f32,
 }
 
@@ -69,6 +67,24 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         }
     };
     let (vec_a, vec_b, vec_c) = abc2vector(10., 10., 10., 90., 90., 90.);
+    let mut det = Det {
+        name: String::new(),
+        detx: XYZ {
+            xyz: [1.0, 0.0, 0.0],
+        },
+        dety: XYZ {
+            xyz: [1.0, 0.0, 0.0],
+        },
+        detz: XYZ {
+            xyz: [1.0, 0.0, 0.0],
+        },
+        nx: 1024,
+        ny: 512,
+        qx: 0.075,
+        qy: 0.075,
+        orgx: 512.0,
+        orgy: 256.0,
+    };
     let mut xdsheader = XDSheader {
         name_template: String::new(),
         oscrange: 0.5,
@@ -88,6 +104,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         s0: XYZ {
             xyz: [0.0, 0.0, 0.0],
         },
+        detector: det,
         detdist: 580.0,
         lambda: 0.02508,
     };
@@ -190,6 +207,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!NX=") {
             let w: Vec<&str> = l.split_whitespace().collect();
             let nx = w[1].trim().parse::<u16>();
+	    det.nx = Some(nx);
             let ny = w[3].trim().parse::<u16>();
             let qx = w[5].trim().parse::<f32>();
             let qy = w[5].trim().parse::<f32>();

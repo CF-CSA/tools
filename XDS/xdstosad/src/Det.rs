@@ -4,47 +4,47 @@ use crate::XYZ::XYZ;
 
 #[derive(Clone)]
 pub struct Det {
-    name_: String,
-    detx_: XYZ,
-    dety_: XYZ,
-    detz_: XYZ,
-    nx_: u16,
-    ny_: u16,
-    qx_: f32,
-    qy_: f32,
-    orgx_: f32,
-    orgy_: f32,
+    name: String,
+    detx: XYZ,
+    dety: XYZ,
+    detz: XYZ,
+    nx: u16,
+    ny: u16,
+    qx: f32,
+    qy: f32,
+    orgx: f32,
+    orgy: f32,
 }
 
 impl Det {
     pub fn detz(&self) -> XYZ {
-        crate::XYZ::cross(self.detx_, self.dety_)
+        crate::XYZ::cross(self.detx, self.dety)
     }
     pub fn name(&self) -> String {
-        self.name_.clone()
+        self.name.clone()
     }
     pub fn detx(&self) -> XYZ {
-        self.detx_
+        self.detx
     }
     pub fn dety(&self) -> XYZ {
-        self.dety_
+        self.dety
     }
     pub fn nx(&self) -> u16 {
-        self.nx_
+        self.nx
     }
     pub fn ny(&self) -> u16 {
-        self.ny_
+        self.ny
     }
     pub fn qx(&self) -> f32 {
-        self.qx_
+        self.qx
     }
     pub fn qy(&self) -> f32 {
-        self.qy_
+        self.qy
     }
     pub fn orgx(&self) -> f32 {
-        self.orgx_
+        self.orgx
     }
     pub fn orgy(&self) -> f32 {
-        self.orgy_
+        self.orgy
     }
 }
