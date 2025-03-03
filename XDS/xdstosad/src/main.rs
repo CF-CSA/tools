@@ -1,5 +1,3 @@
-mod Det;
-mod Geom;
 mod XDSdatum;
 mod XDSheader;
 mod XYZ;
@@ -43,6 +41,6 @@ fn main() {
             myparser.xdsascii()
         );
     }
-    xds2sadabs(myparser.outfile());
+    // xds2sadabs(myparser.outfile());
     println!("Hello, world!");
 }

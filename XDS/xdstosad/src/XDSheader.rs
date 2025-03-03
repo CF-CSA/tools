@@ -1,6 +1,83 @@
-use crate::Det::Det;
 use crate::XYZ::XYZ;
 use std::f32::consts::PI;
+
+// detector information
+
+#[derive(Clone)]
+pub struct Det {
+    name: String,
+    detx: XYZ,
+    dety: XYZ,
+    detz: XYZ,
+    nx: u16,
+    ny: u16,
+    qx: f32,
+    qy: f32,
+    orgx: f32,
+    orgy: f32,
+}
+
+impl Det {
+    pub fn detz(&self) -> XYZ {
+        crate::XYZ::cross(self.detx, self.dety)
+    }
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn detx(&self) -> XYZ {
+        self.detx
+    }
+    pub fn dety(&self) -> XYZ {
+        self.dety
+    }
+    pub fn nx(&self) -> u16 {
+        self.nx
+    }
+    pub fn ny(&self) -> u16 {
+        self.ny
+    }
+    pub fn qx(&self) -> f32 {
+        self.qx
+    }
+    pub fn qy(&self) -> f32 {
+        self.qy
+    }
+    pub fn orgx(&self) -> f32 {
+        self.orgx
+    }
+    pub fn orgy(&self) -> f32 {
+        self.orgy
+    }
+}
+
+
+// geometry description of the diffraction experiment
+#[derive(Copy, Clone)]
+pub struct Geom {
+    rotaxis: XYZ,
+    dir_beam: XYZ,
+    dist: f32,
+    lambda: f32,
+    S0R: [f32; 3],
+}
+
+impl Geom {
+    pub fn rotaxis(self) -> XYZ {
+        self.rotaxis.clone()
+    }
+    pub fn dir_beam(self) -> XYZ {
+        self.dir_beam.clone()
+    }
+    pub fn S0R(self) -> [f32; 3] {
+        self.S0R.clone()
+    }
+    pub fn det_dist(self) -> f32 {
+        self.dist
+    }
+    pub fn lambda(self) -> f32 {
+        self.lambda
+    }
+}
 
 pub struct XDSheader {
     name_template: String,
@@ -21,11 +98,8 @@ pub struct XDSheader {
     vec_a: XYZ,
     vec_b: XYZ,
     vec_c: XYZ,
-    rotaxis: XYZ,
-    s0: XYZ,
     detector: Det,
-    detdist: f32,
-    lambda: f32,
+    geometry: Geom,
 }
 
 fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ, XYZ, XYZ) {
@@ -67,7 +141,15 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         }
     };
     let (vec_a, vec_b, vec_c) = abc2vector(10., 10., 10., 90., 90., 90.);
-    let mut det = Det {
+    let geom = Geom {
+        rotaxis: XYZ { xyz: [1.0, 0.0, 0.0], },
+        dir_beam: XYZ { xyz: [0.0, 0.0, 1.0], },
+        dist: 123.4,
+        lambda: 0.02508,
+        S0R: [0.1, 0.1, 0.1],
+    };
+
+    let det = Det {
         name: String::new(),
         detx: XYZ {
             xyz: [1.0, 0.0, 0.0],
@@ -98,15 +180,8 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         vec_a,
         vec_b,
         vec_c,
-        rotaxis: XYZ {
-            xyz: [1.0, 0.0, 0.0],
-        },
-        s0: XYZ {
-            xyz: [0.0, 0.0, 0.0],
-        },
+        geometry: geom,
         detector: det,
-        detdist: 580.0,
-        lambda: 0.02508,
     };
 
     for l in xdslines.lines() {
@@ -122,7 +197,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!ROTATION_AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.rotaxis = XYZ {
+            xdsheader.geometry.rotaxis = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -191,13 +266,13 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!X-RAY_WAVELENGTH=") {
             let mut r: [f32; 1] = [0.0; 1];
             getnums(l.to_string(), &mut r);
-            xdsheader.lambda = r[0];
+            xdsheader.geometry.lambda = r[0];
             continue;
         }
         if l.contains("!INCIDENT_BEAM_DIRECTION=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.s0 = XYZ {
+            xdsheader.geometry.dir_beam = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -206,11 +281,26 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         // !NX=  1028  NY=  1062    QX=  0.075000  QY=  0.075000
         if l.contains("!NX=") {
             let w: Vec<&str> = l.split_whitespace().collect();
-            let nx = w[1].trim().parse::<u16>();
-	    det.nx = Some(nx);
-            let ny = w[3].trim().parse::<u16>();
-            let qx = w[5].trim().parse::<f32>();
-            let qy = w[5].trim().parse::<f32>();
+            let nx = match w[1].trim().parse::<u16>() {
+                Ok(num) => num,
+                Err(_) => panic!("Format error, NX not found in {l}"),
+            };
+	        xdsheader.detector.nx = nx;
+            let ny = match w[3].trim().parse::<u16>() {
+                Ok(num) => num,
+                Err(_) => panic!("Format error, NY not found in {l}"),
+            };
+	        xdsheader.detector.ny = ny;
+            let qx = match w[5].trim().parse::<f32>(){
+                Ok(num) => num,
+                Err(_) => panic!("Format error, QX not found in {l}"),
+            };
+            xdsheader.detector.qx = qx;
+            let qy = match w[7].trim().parse::<f32>() {
+                Ok(num) => num,
+                Err(_) => panic!("Format error, QY not found in {l}"),
+            };
+            xdsheader.detector.qy = qy;
         }
     }
     return Some(xdsheader);

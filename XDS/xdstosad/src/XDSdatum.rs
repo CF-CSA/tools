@@ -1,7 +1,7 @@
 //read XDS_ASCII.HKL
 
-use crate::Det::Det;
-use crate::Geom::Geom;
+use crate::XDSheader::Geom;
+use crate::XDSheader::Det;
 use crate::XYZ::XYZ;
 
 // computation of direction cosines
@@ -11,8 +11,8 @@ pub struct XDSdatum {
     h_: f32,
     k_: f32,
     l_: f32,
-    I_: f32,
-    sigI_: f32,
+    I: f32,
+    sigI: f32,
     xyzd_: [f32; 3],
     rlp_: f32,
     peak_: f32,
@@ -20,6 +20,7 @@ pub struct XDSdatum {
     psi_: f32,
     cosines_: [f32; 6],
     deviation_: f32,
+    sinetheta: f32,
 }
 pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
     let mut xdsdata: Vec<XDSdatum> = Vec::new();
@@ -51,8 +52,8 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
         h_: 0.0,
         k_: 0.0,
         l_: 0.0,
-        I_: 0.0,
-        sigI_: 0.0,
+        I: 0.0,
+        sigI: 0.0,
         xyzd_: [0.0; 3],
         rlp_: 0.0,
         peak_: 0.0,
@@ -60,6 +61,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
         psi_: 0.0,
         cosines_: [0.0; 6],
         deviation_: 0.0,
+	sinetheta: 0.0,
     };
     // H K L I sigI x y z rlp pk corr psi-angle
     let l: Vec<&str> = dataline.split_whitespace().collect();
@@ -93,7 +95,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[3].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.I_ = x;
+            xdsdatum.I = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -102,7 +104,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[4].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.sigI_ = x;
+            xdsdatum.sigI = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -178,6 +180,10 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
 }
 
 impl XDSdatum {
+    fn sinetheta(self) -> f32 {
+    	return self.sinetheta
+    }
+
     fn cosines(mut self, matrix_u: [f32; 9], geom: Geom, det: Det) {
         // coordinates in reciprocal space
         let mut c = XYZ {
@@ -189,11 +195,11 @@ impl XDSdatum {
         };
         let lc = c.uvec();
 
-        let sinetheta = 0.5 * lc * geom.lambda_;
+        self.sinetheta = 0.5 * lc * geom.lambda();
         // angle of reciprocal beam (from sine theta)
         let phi = f32::atan2(
-            f32::sqrt(f32::max(0.0, 1.0 - sinetheta * sinetheta)),
-            sinetheta,
+            f32::sqrt(f32::max(0.0, 1.0 - self.sinetheta * self.sinetheta)),
+            self.sinetheta,
         );
         // angle of vector w.r.t. rotation axis
         let phi_rot = c.rad_sin_cos(geom.rotaxis());
@@ -202,7 +208,7 @@ impl XDSdatum {
         let s0r_angle = geom.dir_beam().rad_sin_cos(geom.rotaxis());
         let cs = (phi_rot[2] * s0r_angle[2] - phi_s0[2]) / (phi_rot[1] * s0r_angle[1]);
         let s = f32::atan2(f32::sqrt(f32::max(0.0, 1.0 - cs * cs)), cs);
-        let r = (sinetheta - phi_rot[2] * geom.S0R()[2]) / (phi_rot[1] * geom.S0R()[1]);
+        let r = (self.sinetheta - phi_rot[2] * geom.S0R()[2]) / (phi_rot[1] * geom.S0R()[1]);
         let t = f32::atan2(f32::sqrt(f32::max(0.0, 1. - r * r)), r);
 
         // predicted x,y coordinates of this reflection
