@@ -43,9 +43,9 @@ impl XYZ {
     }
     // computes the angle between self and another vector
     // stores angle in radians, its sine and cosine value
-    pub fn rad_sin_cos(self, other: XYZ) -> [f32; 3] {
-        let v1v2 = f32::sqrt((self * self) * (other * other));
-        let cosine = (1. / v1v2) * (self * other);
+    pub fn rad_sin_cos(&self, &other: &XYZ) -> [f32; 3] {
+        let v1v2 = f32::sqrt((*self * *self) * (other * other));
+        let cosine: f32 = (*self * other)*(1. / v1v2);
         let sine = f32::sqrt(f32::max(0.0, 1.0 - cosine * cosine));
         let phi = f32::atan2(sine, cosine);
         [phi, sine, cosine]

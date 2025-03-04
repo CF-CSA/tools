@@ -32,22 +32,22 @@ pub fn write_xds2sad(filename: String, data: Vec<XDSdatum>,
     let mut content = String::new();
 
     let f = dscale;
-    let a: XYZ = header.a();
-    let b: XYZ = header.a();
-    let c: XYZ = header.a();
+    let a: XYZ = *header.a();
+    let b: XYZ = *header.a();
+    let c: XYZ = *header.a();
     // direct beam
-    let s0: XYZ = header.dir_beam();
+    let s0: XYZ = *header.dir_beam();
     // detector normal
-    let detz: XYZ = header.detz();
+    let detz: XYZ = *header.detz();
     // angle between detector normal detz and direct beam
-    let mu = detz.rad_sin_cos(s0);
+    let mu = detz.rad_sin_cos(&s0);
     let Uab = U_AB(a, b, c);
     for s in data {
-    	let c = s.cosines(Uab, geom, det);
-	let xd = 512.0*s.xd()/det.nx();
-	let yd = 512.0*s.yd()/det.ny();
+    	let c = s.cosines(Uab, &header);
+	let xd = 512.0*s.xd()/(*header.nx() as f32);
+	let yd = 512.0*s.yd()/(*header.ny() as f32);
 	let zd = s.zd();
-	let sthl: i16 = 10000 *(s.sinetheta()/geom.lambda());
+	let sthl: i16 = f32::round(10000.0 *(s.sinetheta()/header.lambda())) as i16;
 	// the '1' is part of the original source of xds2sad
 	// 2nd to last: refined angle between direct beam and detector normal
         let line = format!(
@@ -66,8 +66,10 @@ pub fn write_xds2sad(filename: String, data: Vec<XDSdatum>,
             xd,
             yd,
             zd,
-            mu,
+            mu[0],
             sthl
         );
+	content += &line;
     }
+    std::fs::write(filename, content).expect("Unable to write xds.sad");
 }

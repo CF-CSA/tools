@@ -1,7 +1,6 @@
 //read XDS_ASCII.HKL
 
-use crate::XDSheader::Det;
-use crate::XDSheader::Geom;
+use crate::XDSheader::XDSheader;
 use crate::XYZ::XYZ;
 
 // computation of direction cosines
@@ -222,7 +221,7 @@ fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum 
 }
 
 impl XDSdatum {
-    pub fn cosines(mut self, matrix_u: [f32; 9], geom: Geom, det: Det) -> [f32;
+    pub fn cosines(&self, matrix_u: [f32; 9], &header: &XDSheader) -> [f32;
     6] {
         // coordinates in reciprocal space
         let mut c = XYZ {
@@ -234,26 +233,26 @@ impl XDSdatum {
         };
         let lc = c.uvec();
 
-        self.sinetheta = 0.5 * lc * geom.lambda();
+        self.sinetheta = 0.5 * lc * header.lambda();
         // angle of reciprocal beam (from sine theta)
         let phi = f32::atan2(
             f32::sqrt(f32::max(0.0, 1.0 - self.sinetheta * self.sinetheta)),
             self.sinetheta,
         );
         // angle of vector w.r.t. rotation axis
-        let phi_rot = c.rad_sin_cos(geom.rotaxis());
+        let phi_rot = c.rad_sin_cos(header.rotaxis());
         // angle of vector w.r.t. direct beam
-        let phi_s0 = c.rad_sin_cos(geom.clone().dir_beam());
-        let s0r_angle = geom.dir_beam().rad_sin_cos(geom.rotaxis());
+        let phi_s0 = c.rad_sin_cos(header.clone().dir_beam());
+        let s0r_angle = header.dir_beam().rad_sin_cos(header.rotaxis());
         let cs = (phi_rot[2] * s0r_angle[2] - phi_s0[2]) / (phi_rot[1] * s0r_angle[1]);
         let s = f32::atan2(f32::sqrt(f32::max(0.0, 1.0 - cs * cs)), cs);
-        let r = (self.sinetheta - phi_rot[2] * geom.S0R()[2]) / (phi_rot[1] * geom.S0R()[1]);
+        let r = (self.sinetheta - phi_rot[2] * header.S0R()[2]) / (phi_rot[1] * header.S0R()[1]);
         let t = f32::atan2(f32::sqrt(f32::max(0.0, 1. - r * r)), r);
 
         // predicted x,y coordinates of this reflection
-        let x = det.qx() * (self.xyzd[0] - det.orgx());
-        let y = det.qy() * (self.xyzd[1] - det.orgy());
-        let e3: XYZ = det.detx() * x + det.dety() * y + det.detz() * geom.det_dist();
+        let x = header.qx() * (self.xyzd[0] - header.orgx());
+        let y = header.qy() * (self.xyzd[1] - header.orgy());
+        let e3: XYZ = header.detx() * x + header.dety() * y + header.detz() * header.det_dist();
         let mut lim = f32::INFINITY;
 
         let mut phi_rot = phi_rot.clone();
@@ -267,8 +266,8 @@ impl XDSdatum {
                 4 => phi_rot[0],
                 _other => t + s,
             };
-            let crot: XYZ = crate::XYZ::rotate(c, geom.rotaxis(), v);
-            let mut e1: XYZ = crate::XYZ::cross(crot, geom.dir_beam());
+            let crot: XYZ = crate::XYZ::rotate(c, header.rotaxis(), v);
+            let mut e1: XYZ = crate::XYZ::cross(crot, *header.dir_beam());
             e1.uvec();
             e2 = crate::XYZ::rotate(crot, e1, phi);
             let xyz = e2.rad_sin_cos(e3);
@@ -284,11 +283,11 @@ impl XDSdatum {
                 xyz: [matrix_u[i + 0], matrix_u[i + 3], matrix_u[i + 6]],
             };
             e1.uvec();
-            let e3 = crate::XYZ::rotate(e1, geom.rotaxis(), phi_rot[0]);
-            let xyz = e3.rad_sin_cos(geom.dir_beam());
+            let e3 = crate::XYZ::rotate(e1, header.rotaxis(), phi_rot[0]);
+            let xyz = e3.rad_sin_cos(header.dir_beam());
             let j = 2 * i;
             cosines[j] = xyz[2] * (-1.0);
-            let xyz = e3.rad_sin_cos(e2);
+            let xyz = e3.rad_sin_cos(&e2);
             cosines[j + 1] = xyz[2];
         }
 	cosines

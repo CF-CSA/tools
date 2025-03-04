@@ -42,6 +42,6 @@ fn main() {
             myparser.xdsascii()
         );
     }
-    // xds2sadabs(myparser.outfile(), dscale);
+    xds2sadabs::write_xds2sadabs(myparser.outfile(), xdsdata, xdsheader, dscale);
     println!("Hello, world!");
 }

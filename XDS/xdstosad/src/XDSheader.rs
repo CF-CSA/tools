@@ -26,57 +26,6 @@ pub struct Geom {
     S0R: [f32; 3],
 }
 
-impl Det {
-    pub fn detz(&self) -> XYZ {
-        crate::XYZ::cross(self.detx, self.dety)
-    }
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
-    pub fn detx(&self) -> XYZ {
-        self.detx
-    }
-    pub fn dety(&self) -> XYZ {
-        self.dety
-    }
-    pub fn nx(&self) -> u16 {
-        self.nx
-    }
-    pub fn ny(&self) -> u16 {
-        self.ny
-    }
-    pub fn qx(&self) -> f32 {
-        self.qx
-    }
-    pub fn qy(&self) -> f32 {
-        self.qy
-    }
-    pub fn orgx(&self) -> f32 {
-        self.orgx
-    }
-    pub fn orgy(&self) -> f32 {
-        self.orgy
-    }
-}
-
-impl Geom {
-    pub fn rotaxis(self) -> XYZ {
-        self.rotaxis.clone()
-    }
-    pub fn dir_beam(self) -> XYZ {
-        self.dir_beam.clone()
-    }
-    pub fn S0R(self) -> [f32; 3] {
-        self.S0R.clone()
-    }
-    pub fn det_dist(self) -> f32 {
-        self.dist
-    }
-    pub fn lambda(self) -> f32 {
-        self.lambda
-    }
-}
-
 pub struct XDSheader {
     name_template: String,
     oscrange: f32,
@@ -113,8 +62,23 @@ impl XDSheader {
     pub fn dir_beam(&self) -> &XYZ {
         &self.geometry.dir_beam
     }
+    pub fn detx(&self) -> &XYZ {
+        &self.detector.detx
+    }
+    pub fn dety(&self) -> &XYZ {
+        &self.detector.dety
+    }
     pub fn detz(&self) -> &XYZ {
-        &self.detector.detz;
+        &self.detector.detz
+    }
+    pub fn nx(&self) -> &u16 {
+        &self.detector.nx
+    }
+    pub fn ny(&self) -> &u16 {
+        &self.detector.ny
+    }
+    pub fn lambda(&self) -> &f32 {
+        &self.geometry.lambda
     }
 }
 
@@ -300,7 +264,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!DIRECTION_OF_DETECTOR_X-AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.det.detx = XYZ {
+            xdsheader.detector.detx = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -308,7 +272,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         if l.contains("!DIRECTION_OF_DETECTOR_Y-AXIS=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
-            xdsheader.det.dety = XYZ {
+            xdsheader.detector.dety = XYZ {
                 xyz: [r[0], r[1], r[2]],
             };
             continue;
@@ -340,7 +304,8 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
         }
     }
     // detector z-direction defined to complete a right-handed coordinate system
-    xdsheader.detector.detz = XYZ::cross(xdsheader.detector.detx.uvec(), xdsheader.detector.dety.uvec());
+    xdsheader.detector.detz = crate::XYZ::cross(xdsheader.detector.detx, xdsheader.detector.dety);
+    xdsheader.detector.detz.uvec();
 
     return Some(xdsheader);
 }
