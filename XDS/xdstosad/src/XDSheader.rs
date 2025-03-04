@@ -2,7 +2,6 @@ use crate::XYZ::XYZ;
 use std::f32::consts::PI;
 
 // detector information
-
 #[derive(Clone)]
 pub struct Det {
     name: String,
@@ -15,6 +14,16 @@ pub struct Det {
     qy: f32,
     orgx: f32,
     orgy: f32,
+}
+
+// geometry description of the diffraction experiment
+#[derive(Copy, Clone)]
+pub struct Geom {
+    rotaxis: XYZ,
+    dir_beam: XYZ,
+    dist: f32,
+    lambda: f32,
+    S0R: [f32; 3],
 }
 
 impl Det {
@@ -48,17 +57,6 @@ impl Det {
     pub fn orgy(&self) -> f32 {
         self.orgy
     }
-}
-
-
-// geometry description of the diffraction experiment
-#[derive(Copy, Clone)]
-pub struct Geom {
-    rotaxis: XYZ,
-    dir_beam: XYZ,
-    dist: f32,
-    lambda: f32,
-    S0R: [f32; 3],
 }
 
 impl Geom {
@@ -102,6 +100,24 @@ pub struct XDSheader {
     geometry: Geom,
 }
 
+impl XDSheader {
+    pub fn a(&self) -> &XYZ {
+        &self.vec_a
+    }
+    pub fn b(&self) -> &XYZ {
+        &self.vec_b
+    }
+    pub fn c(&self) -> &XYZ {
+        &self.vec_c
+    }
+    pub fn dir_beam(&self) -> &XYZ {
+        &self.geometry.dir_beam
+    }
+    pub fn detz(&self) -> &XYZ {
+        &self.detector.detz;
+    }
+}
+
 fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ, XYZ, XYZ) {
     let alpha = PI / 180.0 * alpha;
     let beta = PI / 180.0 * beta;
@@ -142,8 +158,12 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
     };
     let (vec_a, vec_b, vec_c) = abc2vector(10., 10., 10., 90., 90., 90.);
     let geom = Geom {
-        rotaxis: XYZ { xyz: [1.0, 0.0, 0.0], },
-        dir_beam: XYZ { xyz: [0.0, 0.0, 1.0], },
+        rotaxis: XYZ {
+            xyz: [1.0, 0.0, 0.0],
+        },
+        dir_beam: XYZ {
+            xyz: [0.0, 0.0, 1.0],
+        },
         dist: 123.4,
         lambda: 0.02508,
         S0R: [0.1, 0.1, 0.1],
@@ -277,6 +297,22 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
             };
             continue;
         }
+        if l.contains("!DIRECTION_OF_DETECTOR_X-AXIS=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.det.detx = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
+        if l.contains("!DIRECTION_OF_DETECTOR_Y-AXIS=") {
+            let mut r: [f32; 3] = [0.0; 3];
+            getnums(l.to_string(), &mut r);
+            xdsheader.det.dety = XYZ {
+                xyz: [r[0], r[1], r[2]],
+            };
+            continue;
+        }
         // NX is in line with NY, QX, QY
         // !NX=  1028  NY=  1062    QX=  0.075000  QY=  0.075000
         if l.contains("!NX=") {
@@ -285,13 +321,13 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
                 Ok(num) => num,
                 Err(_) => panic!("Format error, NX not found in {l}"),
             };
-	        xdsheader.detector.nx = nx;
+            xdsheader.detector.nx = nx;
             let ny = match w[3].trim().parse::<u16>() {
                 Ok(num) => num,
                 Err(_) => panic!("Format error, NY not found in {l}"),
             };
-	        xdsheader.detector.ny = ny;
-            let qx = match w[5].trim().parse::<f32>(){
+            xdsheader.detector.ny = ny;
+            let qx = match w[5].trim().parse::<f32>() {
                 Ok(num) => num,
                 Err(_) => panic!("Format error, QX not found in {l}"),
             };
@@ -303,5 +339,8 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
             xdsheader.detector.qy = qy;
         }
     }
+    // detector z-direction defined to complete a right-handed coordinate system
+    xdsheader.detector.detz = XYZ::cross(xdsheader.detector.detx.uvec(), xdsheader.detector.dety.uvec());
+
     return Some(xdsheader);
 }

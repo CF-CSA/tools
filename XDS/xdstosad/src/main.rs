@@ -26,7 +26,8 @@ fn main() {
     if myparser.verbosity() > 0 {
         println!("Read header from {}", myparser.xdsascii());
     }
-    let xdsdata = XDSdatum::readdata(myparser.xdsascii(), myparser.verbosity());
+    let mut dscale = 0.0;
+    let xdsdata = XDSdatum::readdata(myparser.xdsascii(), &mut dscale, myparser.verbosity());
     let xdsdata = match xdsdata {
         Some(xdsdata) => xdsdata,
         None => {
@@ -41,6 +42,6 @@ fn main() {
             myparser.xdsascii()
         );
     }
-    // xds2sadabs(myparser.outfile());
+    // xds2sadabs(myparser.outfile(), dscale);
     println!("Hello, world!");
 }

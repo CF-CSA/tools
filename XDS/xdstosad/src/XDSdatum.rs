@@ -1,28 +1,76 @@
 //read XDS_ASCII.HKL
 
-use crate::XDSheader::Geom;
 use crate::XDSheader::Det;
+use crate::XDSheader::Geom;
 use crate::XYZ::XYZ;
 
 // computation of direction cosines
 
 #[derive(Clone)]
 pub struct XDSdatum {
-    h_: f32,
-    k_: f32,
-    l_: f32,
+    h: f32,
+    k: f32,
+    l: f32,
     I: f32,
     sigI: f32,
-    xyzd_: [f32; 3],
-    rlp_: f32,
-    peak_: f32,
-    corr_: f32,
-    psi_: f32,
-    cosines_: [f32; 6],
-    deviation_: f32,
+    xyzd: [f32; 3],
+    rlp: f32,
+    peak: f32,
+    corr: f32,
+    psi: f32,
+    deviation: f32,
     sinetheta: f32,
 }
-pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
+
+impl XDSdatum {
+    fn new() -> XDSdatum {
+        XDSdatum {
+            h: 0.0,
+            k: 0.0,
+            l: 0.0,
+            I: 0.0,
+            sigI: -1.0,
+            xyzd: [0.0, 0.0, 0.0],
+            rlp: 0.0,
+            peak: 0.0,
+            corr: 0.0,
+            psi: 0.0,
+            deviation: 0.0,
+            sinetheta: 0.0,
+        }
+    }
+    pub fn h(&self) -> &f32 {
+        &self.h
+    }
+    pub fn k(&self) -> &f32 {
+        &self.k
+    }
+    pub fn l(&self) -> &f32 {
+        &self.l
+    }
+    pub fn I(&self) -> &f32 {
+        &self.I
+    }
+    pub fn sigI(&self) -> &f32 {
+        &self.sigI
+    }
+    pub fn sinetheta(&self) -> &f32 {
+        &self.sinetheta
+    }
+    pub fn xd(&self) -> &f32 {
+        &self.xyzd[0]
+    }
+    pub fn yd(&self) -> &f32 {
+        &self.xyzd[1]
+    }
+    pub fn zd(&self) -> &f32 {
+        &self.xyzd[2]
+    }
+}
+
+// read data items from XDS_ASCII.HKL
+pub fn readdata(filename: String, dscale: &mut f32, verbosity: u8) -> Option<Vec<XDSdatum>> {
+    *dscale = -1.0*f32::INFINITY;
     let mut xdsdata: Vec<XDSdatum> = Vec::new();
     let mut xdslines: Vec<String> = std::fs::read_to_string(filename)
         .expect("Failed to read XDS_ASCII.HKL")
@@ -36,39 +84,29 @@ pub fn readdata(filename: String, verbosity: u8) -> Option<Vec<XDSdatum>> {
         if it.len() == 0 {
             break;
         }
-        let xdsdatum = from_dataline(it, verbosity);
+        let xdsdatum = from_dataline(it, &mut *dscale, verbosity);
         xdsdata.push(xdsdatum);
         if verbosity > 2 {
             println!("Total data lines so far: {}", xdsdata.len());
         }
         continue;
     }
+    if verbosity > 1 {
+     println!("Data scale factor = {}", *dscale);
+    }
+       
     return Some(xdsdata);
 }
 
 // extract entries from string
-fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
-    let mut xdsdatum = XDSdatum {
-        h_: 0.0,
-        k_: 0.0,
-        l_: 0.0,
-        I: 0.0,
-        sigI: 0.0,
-        xyzd_: [0.0; 3],
-        rlp_: 0.0,
-        peak_: 0.0,
-        corr_: 0.0,
-        psi_: 0.0,
-        cosines_: [0.0; 6],
-        deviation_: 0.0,
-	sinetheta: 0.0,
-    };
+fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum {
+    let mut xdsdatum = XDSdatum::new();
     // H K L I sigI x y z rlp pk corr psi-angle
     let l: Vec<&str> = dataline.split_whitespace().collect();
     let x = l[0].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.h_ = x;
+            xdsdatum.h = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -77,7 +115,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[1].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.k_ = x;
+            xdsdatum.k = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -86,7 +124,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[2].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.l_ = x;
+            xdsdatum.l = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -96,6 +134,8 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     match x {
         Ok(x) => {
             xdsdatum.I = x;
+            *dscale = f32::max(*dscale, x);
+            *dscale = f32::max(*dscale, -10.0*x);
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -105,6 +145,8 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     match x {
         Ok(x) => {
             xdsdatum.sigI = x;
+            *dscale = f32::max(*dscale, x);
+            *dscale = f32::max(*dscale, -10.0*x);
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -113,7 +155,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[5].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.xyzd_[0] = x;
+            xdsdatum.xyzd[0] = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -122,7 +164,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[6].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.xyzd_[1] = x;
+            xdsdatum.xyzd[1] = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -131,7 +173,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[7].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.xyzd_[2] = x;
+            xdsdatum.xyzd[2] = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -140,7 +182,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[8].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.rlp_ = x;
+            xdsdatum.rlp = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -149,7 +191,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[9].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.peak_ = x;
+            xdsdatum.peak = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -158,7 +200,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[10].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.corr_ = x;
+            xdsdatum.corr = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -167,7 +209,7 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
     let x = l[11].trim().parse();
     match x {
         Ok(x) => {
-            xdsdatum.psi_ = x;
+            xdsdatum.psi = x;
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -180,17 +222,14 @@ fn from_dataline(dataline: String, verbosity: u8) -> XDSdatum {
 }
 
 impl XDSdatum {
-    fn sinetheta(self) -> f32 {
-    	return self.sinetheta
-    }
-
-    fn cosines(mut self, matrix_u: [f32; 9], geom: Geom, det: Det) {
+    pub fn cosines(mut self, matrix_u: [f32; 9], geom: Geom, det: Det) -> [f32;
+    6] {
         // coordinates in reciprocal space
         let mut c = XYZ {
             xyz: [
-                self.h_ * matrix_u[0] + self.k_ * matrix_u[1] + self.l_ * matrix_u[2],
-                self.h_ * matrix_u[3] + self.k_ * matrix_u[4] + self.l_ * matrix_u[5],
-                self.h_ * matrix_u[6] + self.k_ * matrix_u[7] + self.l_ * matrix_u[8],
+                self.h * matrix_u[0] + self.k * matrix_u[1] + self.l * matrix_u[2],
+                self.h * matrix_u[3] + self.k * matrix_u[4] + self.l * matrix_u[5],
+                self.h * matrix_u[6] + self.k * matrix_u[7] + self.l * matrix_u[8],
             ],
         };
         let lc = c.uvec();
@@ -212,8 +251,8 @@ impl XDSdatum {
         let t = f32::atan2(f32::sqrt(f32::max(0.0, 1. - r * r)), r);
 
         // predicted x,y coordinates of this reflection
-        let x = det.qx() * (self.xyzd_[0] - det.orgx());
-        let y = det.qy() * (self.xyzd_[1] - det.orgy());
+        let x = det.qx() * (self.xyzd[0] - det.orgx());
+        let y = det.qy() * (self.xyzd[1] - det.orgy());
         let e3: XYZ = det.detx() * x + det.dety() * y + det.detz() * geom.det_dist();
         let mut lim = f32::INFINITY;
 
@@ -239,6 +278,7 @@ impl XDSdatum {
             }
             continue;
         }
+	let mut cosines: [f32; 6] = [0.0; 6];
         for i in 0..3 {
             let mut e1 = XYZ {
                 xyz: [matrix_u[i + 0], matrix_u[i + 3], matrix_u[i + 6]],
@@ -247,9 +287,10 @@ impl XDSdatum {
             let e3 = crate::XYZ::rotate(e1, geom.rotaxis(), phi_rot[0]);
             let xyz = e3.rad_sin_cos(geom.dir_beam());
             let j = 2 * i;
-            self.cosines_[j] = xyz[2] * (-1.0);
+            cosines[j] = xyz[2] * (-1.0);
             let xyz = e3.rad_sin_cos(e2);
-            self.cosines_[j + 1] = xyz[2];
+            cosines[j + 1] = xyz[2];
         }
+	cosines
     }
 }
