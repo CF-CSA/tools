@@ -17,8 +17,6 @@ pub struct XDSdatum {
     peak: f32,
     corr: f32,
     psi: f32,
-    deviation: f32,
-    sinetheta: f32,
 }
 
 impl XDSdatum {
@@ -34,8 +32,6 @@ impl XDSdatum {
             peak: 0.0,
             corr: 0.0,
             psi: 0.0,
-            deviation: 0.0,
-            sinetheta: 0.0,
         }
     }
     pub fn h(&self) -> &f32 {
@@ -52,9 +48,6 @@ impl XDSdatum {
     }
     pub fn sigI(&self) -> &f32 {
         &self.sigI
-    }
-    pub fn sinetheta(&self) -> &f32 {
-        &self.sinetheta
     }
     pub fn xd(&self) -> &f32 {
         &self.xyzd[0]
@@ -85,7 +78,7 @@ pub fn readdata(filename: String, dscale: &mut f32, verbosity: u8) -> Option<Vec
         }
         let xdsdatum = from_dataline(it, &mut *dscale, verbosity);
         xdsdata.push(xdsdatum);
-        if verbosity > 2 {
+        if verbosity > 1 {
             println!("Total data lines so far: {}", xdsdata.len());
         }
         continue;
@@ -133,6 +126,7 @@ fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum 
     match x {
         Ok(x) => {
             xdsdatum.I = x;
+	    println!("Reading intensity value {}", x);
             *dscale = f32::max(*dscale, x);
             *dscale = f32::max(*dscale, -10.0*x);
         }
@@ -221,8 +215,10 @@ fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum 
 }
 
 impl XDSdatum {
-    pub fn cosines(&self, matrix_u: [f32; 9], &header: &XDSheader) -> [f32;
-    6] {
+    // computes direction cosines as well as sinetheta / lambda
+    // direction cosines stored in 0-6, sthl in 7 of return array
+    pub fn cosines(&self, matrix_u: [f32; 9], header: &XDSheader) -> [f32;
+    7] {
         // coordinates in reciprocal space
         let mut c = XYZ {
             xyz: [
@@ -232,27 +228,28 @@ impl XDSdatum {
             ],
         };
         let lc = c.uvec();
+	let sthl = 0.5 * lc;
+	let sinetheta = sthl * header.lambda();
 
-        self.sinetheta = 0.5 * lc * header.lambda();
         // angle of reciprocal beam (from sine theta)
         let phi = f32::atan2(
-            f32::sqrt(f32::max(0.0, 1.0 - self.sinetheta * self.sinetheta)),
-            self.sinetheta,
+            f32::sqrt(f32::max(0.0, 1.0 - sinetheta * sinetheta)),
+            sinetheta,
         );
         // angle of vector w.r.t. rotation axis
         let phi_rot = c.rad_sin_cos(header.rotaxis());
         // angle of vector w.r.t. direct beam
-        let phi_s0 = c.rad_sin_cos(header.clone().dir_beam());
+        let phi_s0 = c.rad_sin_cos(header.dir_beam());
         let s0r_angle = header.dir_beam().rad_sin_cos(header.rotaxis());
         let cs = (phi_rot[2] * s0r_angle[2] - phi_s0[2]) / (phi_rot[1] * s0r_angle[1]);
         let s = f32::atan2(f32::sqrt(f32::max(0.0, 1.0 - cs * cs)), cs);
-        let r = (self.sinetheta - phi_rot[2] * header.S0R()[2]) / (phi_rot[1] * header.S0R()[1]);
+        let r = (sinetheta - phi_rot[2] * header.S0R()[2]) / (phi_rot[1] * header.S0R()[1]);
         let t = f32::atan2(f32::sqrt(f32::max(0.0, 1. - r * r)), r);
 
         // predicted x,y coordinates of this reflection
         let x = header.qx() * (self.xyzd[0] - header.orgx());
         let y = header.qy() * (self.xyzd[1] - header.orgy());
-        let e3: XYZ = header.detx() * x + header.dety() * y + header.detz() * header.det_dist();
+        let e3: XYZ = *header.detx() * x + *header.dety() * y + *header.detz() * *header.distance();
         let mut lim = f32::INFINITY;
 
         let mut phi_rot = phi_rot.clone();
@@ -266,24 +263,25 @@ impl XDSdatum {
                 4 => phi_rot[0],
                 _other => t + s,
             };
-            let crot: XYZ = crate::XYZ::rotate(c, header.rotaxis(), v);
+            let crot: XYZ = crate::XYZ::rotate(c, *header.rotaxis(), v);
             let mut e1: XYZ = crate::XYZ::cross(crot, *header.dir_beam());
             e1.uvec();
             e2 = crate::XYZ::rotate(crot, e1, phi);
-            let xyz = e2.rad_sin_cos(e3);
+            let xyz = e2.rad_sin_cos(&e3);
             if xyz[0] < lim {
                 lim = xyz[0];
                 phi_rot[0] = v;
             }
             continue;
         }
-	let mut cosines: [f32; 6] = [0.0; 6];
+	let mut cosines: [f32; 7] = [0.0; 7];
+	cosines [6] = sthl;
         for i in 0..3 {
             let mut e1 = XYZ {
                 xyz: [matrix_u[i + 0], matrix_u[i + 3], matrix_u[i + 6]],
             };
             e1.uvec();
-            let e3 = crate::XYZ::rotate(e1, header.rotaxis(), phi_rot[0]);
+            let e3 = crate::XYZ::rotate(e1, *header.rotaxis(), phi_rot[0]);
             let xyz = e3.rad_sin_cos(header.dir_beam());
             let j = 2 * i;
             cosines[j] = xyz[2] * (-1.0);

@@ -37,11 +37,12 @@ fn main() {
     };
     if myparser.verbosity() > 0 {
         println!(
-            "Read {} lines of data from {}",
+            "Read {} lines of data from {}; scale factor = {}",
             xdsdata.len(),
-            myparser.xdsascii()
+            myparser.xdsascii(),
+	    dscale,
         );
     }
-    xds2sadabs::write_xds2sadabs(myparser.outfile(), xdsdata, xdsheader, dscale);
+    xds2sadabs::write_xds2sad(myparser.outfile(), xdsdata, xdsheader, dscale);
     println!("Hello, world!");
 }

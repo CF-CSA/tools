@@ -1,7 +1,7 @@
 // 3D vectors
 use std::ops::{Add, Div, Mul, Sub};
 
-#[derive(Copy, Clone)]
+#[derive(Default, Clone, Copy)]
 pub struct XYZ {
     pub xyz: [f32; 3],
 }

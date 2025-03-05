@@ -47,7 +47,7 @@ pub fn write_xds2sad(filename: String, data: Vec<XDSdatum>,
 	let xd = 512.0*s.xd()/(*header.nx() as f32);
 	let yd = 512.0*s.yd()/(*header.ny() as f32);
 	let zd = s.zd();
-	let sthl: i16 = f32::round(10000.0 *(s.sinetheta()/header.lambda())) as i16;
+	let sthl: i16 = f32::round(10000.0 *(c[6])) as i16;
 	// the '1' is part of the original source of xds2sad
 	// 2nd to last: refined angle between direct beam and detector normal
         let line = format!(

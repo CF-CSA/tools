@@ -2,7 +2,7 @@ use crate::XYZ::XYZ;
 use std::f32::consts::PI;
 
 // detector information
-#[derive(Clone)]
+#[derive(Default)]
 pub struct Det {
     name: String,
     detx: XYZ,
@@ -17,15 +17,15 @@ pub struct Det {
 }
 
 // geometry description of the diffraction experiment
-#[derive(Copy, Clone)]
+#[derive(Default)]
 pub struct Geom {
     rotaxis: XYZ,
     dir_beam: XYZ,
     dist: f32,
     lambda: f32,
-    S0R: [f32; 3],
 }
 
+#[derive(Default)]
 pub struct XDSheader {
     name_template: String,
     oscrange: f32,
@@ -62,6 +62,12 @@ impl XDSheader {
     pub fn dir_beam(&self) -> &XYZ {
         &self.geometry.dir_beam
     }
+    pub fn distance(&self) -> &f32 {
+    	&self.geometry.dist
+	}
+    pub fn rotaxis(&self) -> &XYZ {
+    	&self.geometry.rotaxis
+	}
     pub fn detx(&self) -> &XYZ {
         &self.detector.detx
     }
@@ -77,9 +83,25 @@ impl XDSheader {
     pub fn ny(&self) -> &u16 {
         &self.detector.ny
     }
+    pub fn qx(&self) -> &f32 {
+        &self.detector.qx
+    }
+    pub fn qy(&self) -> &f32 {
+        &self.detector.qy
+    }
     pub fn lambda(&self) -> &f32 {
         &self.geometry.lambda
     }
+    pub fn orgx(&self) -> &f32 {
+    	&self.detector.orgx
+	}
+    pub fn orgy(&self) -> &f32 {
+    	&self.detector.orgy
+	}
+    pub fn S0R(&self) -> [f32; 3] {
+    	let s0r = self.geometry.dir_beam.rad_sin_cos(&self.geometry.rotaxis);
+	s0r
+	}
 }
 
 fn abc2vector(a: f32, b: f32, c: f32, alpha: f32, beta: f32, gamma: f32) -> (XYZ, XYZ, XYZ) {
@@ -120,53 +142,7 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
             return None;
         }
     };
-    let (vec_a, vec_b, vec_c) = abc2vector(10., 10., 10., 90., 90., 90.);
-    let geom = Geom {
-        rotaxis: XYZ {
-            xyz: [1.0, 0.0, 0.0],
-        },
-        dir_beam: XYZ {
-            xyz: [0.0, 0.0, 1.0],
-        },
-        dist: 123.4,
-        lambda: 0.02508,
-        S0R: [0.1, 0.1, 0.1],
-    };
-
-    let det = Det {
-        name: String::new(),
-        detx: XYZ {
-            xyz: [1.0, 0.0, 0.0],
-        },
-        dety: XYZ {
-            xyz: [1.0, 0.0, 0.0],
-        },
-        detz: XYZ {
-            xyz: [1.0, 0.0, 0.0],
-        },
-        nx: 1024,
-        ny: 512,
-        qx: 0.075,
-        qy: 0.075,
-        orgx: 512.0,
-        orgy: 256.0,
-    };
-    let mut xdsheader = XDSheader {
-        name_template: String::new(),
-        oscrange: 0.5,
-        drange: [1, 1000],
-        phi0: 0.0,
-        frameno0: 1,
-        dmin: 0.84,
-        dmax: 999.9,
-        sg_number: 0,
-        cell: [10., 10., 10., 90., 90., 90.],
-        vec_a,
-        vec_b,
-        vec_c,
-        geometry: geom,
-        detector: det,
-    };
+    let mut xdsheader = XDSheader::default();
 
     for l in xdslines.lines() {
         if l.contains("!END_OF_HEADER") {
