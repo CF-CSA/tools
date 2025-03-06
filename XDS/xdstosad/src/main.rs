@@ -35,6 +35,7 @@ fn main() {
             return ();
         }
     };
+
     if myparser.verbosity() > 0 {
         println!(
             "Read {} lines of data from {}; scale factor = {}",

@@ -62,7 +62,7 @@ impl XDSdatum {
 
 // read data items from XDS_ASCII.HKL
 pub fn readdata(filename: String, dscale: &mut f32, verbosity: u8) -> Option<Vec<XDSdatum>> {
-    *dscale = -1.0*f32::INFINITY;
+    *dscale = -1.0 * f32::INFINITY;
     let mut xdsdata: Vec<XDSdatum> = Vec::new();
     let mut xdslines: Vec<String> = std::fs::read_to_string(filename)
         .expect("Failed to read XDS_ASCII.HKL")
@@ -84,9 +84,9 @@ pub fn readdata(filename: String, dscale: &mut f32, verbosity: u8) -> Option<Vec
         continue;
     }
     if verbosity > 1 {
-     println!("Data scale factor = {}", *dscale);
+        println!("Data scale factor = {}", *dscale);
     }
-       
+
     return Some(xdsdata);
 }
 
@@ -126,9 +126,8 @@ fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum 
     match x {
         Ok(x) => {
             xdsdatum.I = x;
-	    println!("Reading intensity value {}", x);
             *dscale = f32::max(*dscale, x);
-            *dscale = f32::max(*dscale, -10.0*x);
+            *dscale = f32::max(*dscale, -10.0 * x);
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -139,7 +138,7 @@ fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum 
         Ok(x) => {
             xdsdatum.sigI = x;
             *dscale = f32::max(*dscale, x);
-            *dscale = f32::max(*dscale, -10.0*x);
+            *dscale = f32::max(*dscale, -10.0 * x);
         }
         Err(_) => {
             println!("Cannot parse {dataline}");
@@ -217,8 +216,11 @@ fn from_dataline(dataline: String, dscale: &mut f32, verbosity: u8) -> XDSdatum 
 impl XDSdatum {
     // computes direction cosines as well as sinetheta / lambda
     // direction cosines stored in 0-6, sthl in 7 of return array
-    pub fn cosines(&self, matrix_u: [f32; 9], header: &XDSheader) -> [f32;
-    7] {
+    pub fn cosines(&self, matrix_u: [f32; 9], header: &XDSheader) -> [f32; 7] {
+        println!("Matrix Uab:");
+	println!("   {:4.3} {:4.3} {:4.3}", matrix_u[0], matrix_u[1], matrix_u[2]);
+	println!("   {:4.3} {:4.3} {:4.3}", matrix_u[3], matrix_u[4], matrix_u[5]);
+	println!("   {:4.3} {:4.3} {:4.3}", matrix_u[6], matrix_u[7], matrix_u[8]);
         // coordinates in reciprocal space
         let mut c = XYZ {
             xyz: [
@@ -228,8 +230,8 @@ impl XDSdatum {
             ],
         };
         let lc = c.uvec();
-	let sthl = 0.5 * lc;
-	let sinetheta = sthl * header.lambda();
+        let sthl = 0.5 * lc;
+        let sinetheta = sthl * header.lambda();
 
         // angle of reciprocal beam (from sine theta)
         let phi = f32::atan2(
@@ -274,8 +276,8 @@ impl XDSdatum {
             }
             continue;
         }
-	let mut cosines: [f32; 7] = [0.0; 7];
-	cosines [6] = sthl;
+        let mut cosines: [f32; 7] = [0.0; 7];
+        cosines[6] = sthl;
         for i in 0..3 {
             let mut e1 = XYZ {
                 xyz: [matrix_u[i + 0], matrix_u[i + 3], matrix_u[i + 6]],
@@ -288,6 +290,6 @@ impl XDSdatum {
             let xyz = e3.rad_sin_cos(&e2);
             cosines[j + 1] = xyz[2];
         }
-	cosines
+        cosines
     }
 }
