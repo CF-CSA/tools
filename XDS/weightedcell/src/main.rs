@@ -506,7 +506,7 @@ fn rd_correct(filename: String) -> Option<(Cell, Pcf) > {
 fn printcell(cell: &Cell) {
     println!("!---> {}", cell.file);
     println!(
-        "!     cell {:7.3}{:7.3}{:7.3}{:7.3}{:7.3}{:7.3}",
+        "!     cell {:8.3}{:8.3}{:8.3}{:9.3}{:9.3}{:9.3}",
         cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma
     );
     println!(
@@ -529,7 +529,7 @@ fn xscaleinp(cells: Vec<Cell>, mcell: Cell) {
     }
     println!("!=========================================================================");
     println!(
-        "! Mean cell: {:8.4} {:8.4} {:8.4} {:8.3} {:8.3} {:8.3}",
+        "! Mean cell: {:8.4} {:8.4} {:8.4} {:9.3} {:9.3} {:9.3}",
         mcell.a, mcell.b, mcell.c, mcell.alpha, mcell.beta, mcell.gamma
     );
     println!(
