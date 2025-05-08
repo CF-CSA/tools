@@ -603,6 +603,9 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
     content += &String::from("_cell_measurement_theta_min\n");
     content += &String::from("_cell_measurement_theta_max\n");
     let mut id = 1;
+    let mut global_refl_used: i32 = 0;
+    let mut global_thetamin: f32  = 180.0;
+    let mut global_thetamax: f32  = 0.0;
     for x in pcfs {
         // get dmin and dmax from XDS_ASCII.HKL
         let mut filename = x.file;
@@ -648,9 +651,18 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
             180.0/std::f32::consts::PI*thetamin,
             180.0/std::f32::consts::PI*thetamax
         );
+	global_refl_used += x.num_refl;
+	global_thetamin = f32::min(global_thetamin, 180.0/std::f32::consts::PI*thetamin);
+	global_thetamax = f32::max(global_thetamax, 180.0/std::f32::consts::PI*thetamax);
         content += &s;
         id += 1;
     }
+    let s = format!("\n_cell_measurement_reflns_used    {}\n", global_refl_used);
+    content += &s;
+    let s = format!("_cell_measurement_theta_min      {:4.2}\n", global_thetamin);
+    content += &s;
+    let s = format!("_cell_measurement_theta_max      {:4.2}\n", global_thetamax);
+    content += &s;
 
     std::fs::write(PCFFILE, content).expect("Unable to write to PCF file");
 }
