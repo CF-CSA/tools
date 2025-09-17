@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
-use std::process;
 use std::ops::{Add, Div, Mul, Sub};
+use std::process;
 
 use chrono::{TimeZone, Utc};
 use std::env;
@@ -26,6 +26,27 @@ struct Cell {
     gamma_esu: f32,
 }
 
+impl Default for Cell {
+    fn default() -> Cell {
+        Cell {
+            file: String::new(),
+            sg: -1,
+            a: 10.0,
+            b: 10.0,
+            c: 10.0,
+            alpha: 90.0,
+            beta: 90.0,
+            gamma: 90.0,
+            a_esu: -1.0,
+            b_esu: -1.0,
+            c_esu: -1.0,
+            alpha_esu: -1.0,
+            beta_esu: -1.0,
+            gamma_esu: -1.0,
+        }
+    }
+}
+
 // collection of experimental information for pcf-file
 #[derive(Clone)]
 struct Pcf {
@@ -42,6 +63,23 @@ struct Pcf {
     cellesd: (f32, f32, f32, f32, f32, f32), // from CORRECT.LP ( or Cell)
 }
 
+impl Default for Pcf {
+    fn default() -> Pcf {
+        Pcf {
+            file: String::new(),
+            num_refl: 0,
+            detector: String::new(),
+            nx: 0,
+            ny: 0,
+            qx: 0.0,
+            qy: 0.0,
+            distance: 0.0,
+            wavelength: 0.0,
+            cellabc: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            cellesd: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        }
+    }
+}
 // 3D vectors
 #[derive(Clone)]
 struct XYZ {
@@ -168,25 +206,25 @@ fn main() {
     let mut pcf_switch: bool = false;
 
     for idx in 1..args.len() {
-	let mut filename: String;
-    	match args[idx].as_str() {
-		"-h" => {
-			usage();
-			process::exit(1);
-			},
-		"-w" => {
-			pcf_switch = true;
-			continue;
-			},
-		_ => filename = args[idx].clone(),
-	}
+        let mut filename: String;
+        match args[idx].as_str() {
+            "-h" => {
+                usage();
+                process::exit(1);
+            }
+            "-w" => {
+                pcf_switch = true;
+                continue;
+            }
+            _ => filename = args[idx].clone(),
+        }
         if std::path::Path::new(&filename).is_dir() == true {
             filename += "/CORRECT.LP";
         }
         let (cell, pcf) = match rd_correct(filename) {
-		Some((cell, pcf)) => (cell, pcf),
-		None  => continue,
-	};
+            Some((cell, pcf)) => (cell, pcf),
+            None => continue,
+        };
         all_cells.push(cell.clone());
         all_pcfs.push(pcf.clone());
         if cell.sg == -1 || cell.a_esu == -1.0 {
@@ -196,12 +234,20 @@ fn main() {
         }
     }
     if all_cells.len() == 0 {
-    	usage();
-    	println!("\n---> Empty list of CORRECT.LP files <---");
-	std::process::exit(1);
-	}
+        usage();
+        println!("\n---> Empty list of CORRECT.LP files <---");
+        std::process::exit(1);
+    }
 
-    let sg = cells_w_esu[0].sg;
+    if cells_w_esu.len() == 0 && cells_wo_esu.len() == 0 {
+        panic!("No cells found at all, exiting");
+    }
+    let sg = if cells_w_esu.len() > 0 {
+        cells_w_esu[0].sg
+    } else {
+        cells_wo_esu[0].sg
+    };
+
     let mcell: Cell;
     // no esu's available, take standard average
     if cells_w_esu.len() < 1 {
@@ -285,7 +331,7 @@ fn main() {
 
     xscaleinp(all_cells, mcell.clone());
     if pcf_switch == true {
-    	write_pcf(all_pcfs, &mcell);
+        write_pcf(all_pcfs, &mcell);
     }
 }
 
@@ -312,34 +358,37 @@ fn wmean(vals: &Vec<f32>, sigmas: &Vec<f32>) -> (f32, f32) {
     let mut sumw: f32 = 0.0;
     for it in vals.iter().zip(sigmas.iter()) {
         let (x, s) = it;
-	let w = 1.0 - (mean - *x) * (mean - *x) / (mean*mean);
+        let w = 1.0 - (mean - *x) * (mean - *x) / (mean * mean);
         sums += w * *s;
         sumw += w;
     }
-    let sigma: f32 = sums/ sumw;
+    let sigma: f32 = sums / sumw;
 
     (mean, sigma)
 }
 
 fn usage() {
-	println!("Usage: weightedcell <one or more CORRECT.LP> [-w]\n");
-	println!("      -w: Create file weightedcell.pcf with CIF keywords");
-	println!("          including some experimental data\n");
-	println!("       e.g. #> weightedcell ../run | tee XSCALE.INP");
-	println!("       or   #> weightedcell ../run/CORRECT.LP | tee XSCALE.INP");
+    println!("Usage: weightedcell <one or more CORRECT.LP> [-w]\n");
+    println!("      -w: Create file weightedcell.pcf with CIF keywords");
+    println!("          including some experimental data\n");
+    println!("       e.g. #> weightedcell ../run | tee XSCALE.INP");
+    println!("       or   #> weightedcell ../run/CORRECT.LP | tee XSCALE.INP");
 }
 
 fn welcome() {
     let now = match env::var("SOURCE_DATE_EPOCH") {
-    Ok(val) => { Utc.timestamp_opt(val.parse::<i64>().unwrap(), 0).unwrap() }
+        Ok(val) => Utc.timestamp_opt(val.parse::<i64>().unwrap(), 0).unwrap(),
         Err(_) => Utc::now(),
-        };
+    };
     let now = now.to_string();
     println!("! ----------------> XSCALE.INP from weightedcell <--------------!");
     println!("!  Weighted cell parameters from XDS CORRECT.LP                 !");
     println!("!  Version 01/2025, (c) Tim Gruene                              !");
     println!("!  tim.gruene@univie.ac.at                                      !");
-    println!("!  Experimental CIF entries written to {:10}         !", PCFFILE);
+    println!(
+        "!  Experimental CIF entries written to {:10}         !",
+        PCFFILE
+    );
     println!("!  Built {:-30}                      !", now);
     println!("! --------------------------------------------------------------!");
 }
@@ -348,56 +397,39 @@ fn welcome() {
 // assume to be valid path
 // return true if esds are available
 // if
-fn rd_correct(filename: String) -> Option<(Cell, Pcf) > {
-    let mut mycell = Cell {
-        file: filename.clone(),
-        sg: -1,
-        a: 10.0,
-        b: 10.0,
-        c: 10.0,
-        alpha: 90.0,
-        beta: 90.0,
-        gamma: 90.0,
-        a_esu: -1.0,
-        b_esu: -1.0,
-        c_esu: -1.0,
-        alpha_esu: -1.0,
-        beta_esu: -1.0,
-        gamma_esu: -1.0,
-    };
-    let mut mypcf = Pcf {
-        file: filename.clone(),
-        num_refl: 0,
-        detector: String::new(),
-        nx: 0,
-        ny: 0,
-        qx: 0.0,
-        qy: 0.0,
-        distance: 0.0,
-        wavelength: 0.0,
-        cellabc: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-        cellesd: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    };
+fn rd_correct(filename: String) -> Option<(Cell, Pcf)> {
+    let mut mycell = Cell::default();
+    let mut mypcf = Pcf::default();
 
-    let correctlp_result = std::fs::read_to_string(filename);
+    let correctlp_result = std::fs::read_to_string(filename.clone());
     let correctlp = match correctlp_result {
-    	Ok(lines) => lines,
-	Err(_) => String::new(),
-	};
+        Ok(lines) => lines,
+        Err(_) => String::new(),
+    };
     if correctlp.len() == 0 {
-    	return None;
-	}
+        return None;
+    }
 
+    let mut proper_correctlp: bool = false;
     // error handling is done, can use lines() directly
     for l in correctlp.lines() {
+        if l.contains(" ***** CORRECT ***** (VERSION") {
+            proper_correctlp = true;
+            continue;
+        }
         ///////////////////////////////////////////////
         // PCF Details                               //
         ///////////////////////////////////////////////
         if l.contains(" X-RAY_WAVELENGTH=") {
             let w: Vec<&str> = l.split_whitespace().collect();
-            let wavelength = w[1].trim().parse::<f32>();
-            mypcf.wavelength =
-                wavelength.expect("Error: unable to read {wavelength} as wavelength");
+            let wavelength = match w[1].trim().parse::<f32>() {
+                Ok(l) => l,
+                Err(_) => {
+                    println!("Could not read wavelength from {0}", mycell.file);
+                    return None;
+                }
+            };
+            mypcf.wavelength = wavelength;
             continue;
         }
         if l.contains(" DETECTOR=") {
@@ -409,13 +441,18 @@ fn rd_correct(filename: String) -> Option<(Cell, Pcf) > {
         if l.contains(" NX=") {
             let w: Vec<&str> = l.split_whitespace().collect();
             let x = w[1].trim().parse::<i32>();
-            mypcf.nx = x.expect("Error: unable to read {x} as NX.");
+            mypcf.nx = x.expect("Error: unable to read NX.");
             let x = w[3].trim().parse::<i32>();
-            mypcf.ny = x.expect("Error: unable to read {x} as NY.");
-            let x = w[5].trim().parse::<f32>();
-            mypcf.qx = x.expect("Error: unable to read {x} as QX.");
+            mypcf.ny = x.expect("Error: unable to read NY.");
+            let x = match w[5].trim().parse::<f32>() {
+                Ok(q) => q,
+                Err(_) => {
+                    return None;
+                }
+            };
+            mypcf.qx = x;
             let x = w[7].trim().parse::<f32>();
-            mypcf.qy = x.expect("Error: unable to read {x} as QY.");
+            mypcf.qy = x.expect("Error: unable to read QY.");
             continue;
         }
         if l.contains(" DETECTOR_DISTANCE=") {
@@ -483,6 +520,12 @@ fn rd_correct(filename: String) -> Option<(Cell, Pcf) > {
             continue;
         }
     }
+    // need to capture the possibility that not all values were set (incorrect
+    // CORRECT.LP
+    if proper_correctlp == false {
+        return None;
+    }
+    mycell.file = filename;
     // update mypcf with cell information
     mypcf.cellabc = (
         mycell.a,
@@ -604,8 +647,8 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
     content += &String::from("_cell_measurement_theta_max\n");
     let mut id = 1;
     let mut global_refl_used: i32 = 0;
-    let mut global_thetamin: f32  = 180.0;
-    let mut global_thetamax: f32  = 0.0;
+    let mut global_thetamin: f32 = 180.0;
+    let mut global_thetamax: f32 = 0.0;
     for x in pcfs {
         // get dmin and dmax from XDS_ASCII.HKL
         let mut filename = x.file;
@@ -614,8 +657,8 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
         }
         let filename = filename.replace("CORRECT.LP", "XDS_ASCII.HKL");
         let (dstarmin, dstarmax) = resolution_range(&filename, mcell);
-        let thetamin = f32::asin(f32::min(1.0,0.5 * dstarmin * x.wavelength));
-        let thetamax = f32::asin(f32::min(1.0,0.5 * dstarmax * x.wavelength));
+        let thetamin = f32::asin(f32::min(1.0, 0.5 * dstarmin * x.wavelength));
+        let thetamax = f32::asin(f32::min(1.0, 0.5 * dstarmax * x.wavelength));
         let (a, b, c, al, be, ga) = x.cellesd;
         let (pa, a) = precision(a);
         let (pb, b) = precision(b);
@@ -648,12 +691,12 @@ fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
             x.cellabc.5,
             pga,
             x.num_refl,
-            180.0/std::f32::consts::PI*thetamin,
-            180.0/std::f32::consts::PI*thetamax
+            180.0 / std::f32::consts::PI * thetamin,
+            180.0 / std::f32::consts::PI * thetamax
         );
-	global_refl_used += x.num_refl;
-	global_thetamin = f32::min(global_thetamin, 180.0/std::f32::consts::PI*thetamin);
-	global_thetamax = f32::max(global_thetamax, 180.0/std::f32::consts::PI*thetamax);
+        global_refl_used += x.num_refl;
+        global_thetamin = f32::min(global_thetamin, 180.0 / std::f32::consts::PI * thetamin);
+        global_thetamax = f32::max(global_thetamax, 180.0 / std::f32::consts::PI * thetamax);
         content += &s;
         id += 1;
     }
