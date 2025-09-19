@@ -226,7 +226,7 @@ fn main() {
             None => continue,
         };
         all_cells.push(cell.clone());
-        all_pcfs.push(pcf.clone());
+        all_pcfs.push(pcf);
         if cell.sg == -1 || cell.a_esu == -1.0 {
             cells_wo_esu.push(cell);
         } else {
@@ -399,9 +399,11 @@ fn welcome() {
 // if
 fn rd_correct(filename: String) -> Option<(Cell, Pcf)> {
     let mut mycell = Cell::default();
+    mycell.file = filename.clone();
     let mut mypcf = Pcf::default();
+    mypcf.file = filename;
 
-    let correctlp_result = std::fs::read_to_string(filename.clone());
+    let correctlp_result = std::fs::read_to_string(mycell.file.clone());
     let correctlp = match correctlp_result {
         Ok(lines) => lines,
         Err(_) => String::new(),
@@ -525,7 +527,6 @@ fn rd_correct(filename: String) -> Option<(Cell, Pcf)> {
     if proper_correctlp == false {
         return None;
     }
-    mycell.file = filename;
     // update mypcf with cell information
     mypcf.cellabc = (
         mycell.a,
