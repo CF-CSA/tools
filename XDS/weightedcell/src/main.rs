@@ -1,11 +1,16 @@
 use std::f32::consts::PI;
 use std::ops::{Add, Div, Mul, Sub};
 use std::process;
+use std::io::Write;
 
 use chrono::{TimeZone, Utc};
 use std::env;
 
 const PCFFILE: &str = "weightedcell.pcf";
+const P4PFILE: &str = "my.p4p";
+const SRCCU: &str = "CU     1.54184   1.54056   1.54439   2.00000   50.00    1.20";
+const SRCMO: &str = "MO     0.71073   0.70930   0.71359   2.00000   60.00    0.83";
+const SRCED: &str = "LaB6   0.02508   0.02508   0.02508   2.0     200.00  0.00001";
 
 // cell parameters including esu
 #[derive(Clone)]
@@ -204,6 +209,8 @@ fn main() {
     let mut cells_w_esu: Vec<Cell> = Vec::new();
     let mut cells_wo_esu: Vec<Cell> = Vec::new();
     let mut pcf_switch: bool = false;
+    let mut p4p_switch: bool = false;
+    let mut lambda: f32 = 0.71073;
 
     for idx in 1..args.len() {
         let mut filename: String;
@@ -216,15 +223,20 @@ fn main() {
                 pcf_switch = true;
                 continue;
             }
+            "-4" => {
+                p4p_switch = true;
+                continue;
+            }
             _ => filename = args[idx].clone(),
         }
         if std::path::Path::new(&filename).is_dir() == true {
             filename += "/CORRECT.LP";
         }
-        let (cell, pcf) = match rd_correct(filename) {
-            Some((cell, pcf)) => (cell, pcf),
+        let (cell, pcf, wl) = match rd_correct(filename) {
+            Some((cell, pcf, wl)) => (cell, pcf, wl),
             None => continue,
         };
+        lambda = wl;
         all_cells.push(cell.clone());
         all_pcfs.push(pcf);
         if cell.sg == -1 || cell.a_esu == -1.0 {
@@ -333,6 +345,10 @@ fn main() {
     if pcf_switch == true {
         write_pcf(all_pcfs, &mcell);
     }
+    if p4p_switch == true {
+        let mycell = mcell.clone();
+        write_p4p(mycell, lambda);
+    }
 }
 
 // compute weighted mean
@@ -395,9 +411,7 @@ fn welcome() {
 
 // read CORRECT.LP; path provided by filename
 // assume to be valid path
-// return true if esds are available
-// if
-fn rd_correct(filename: String) -> Option<(Cell, Pcf)> {
+fn rd_correct(filename: String) -> Option<(Cell, Pcf, f32)> {
     let mut mycell = Cell::default();
     mycell.file = filename.clone();
     let mut mypcf = Pcf::default();
@@ -544,7 +558,8 @@ fn rd_correct(filename: String) -> Option<(Cell, Pcf)> {
         mycell.beta_esu,
         mycell.gamma_esu,
     );
-    Some((mycell, mypcf))
+    let lambda = mypcf.wavelength.clone();
+    Some((mycell, mypcf, lambda))
 }
 
 fn printcell(cell: &Cell) {
@@ -631,6 +646,51 @@ fn resolution_range(xdsascii: &String, cell: &Cell) -> (f32, f32) {
 fn reciprocal_d_spacing(h: i32, k: i32, l: i32, a: XYZ, b: XYZ, c: XYZ) -> f32 {
     let p: XYZ = a * h + b * k + c * l;
     p.clone() * p
+}
+
+// write simple information to my.p4p: cell, wavelength
+fn write_p4p(mcell: Cell, lambda: f32) {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(P4PFILE)
+        .expect("Unable to open P4P file {}");
+
+    let a: f32 = mcell.a;
+    let b: f32 = mcell.b;
+    let c: f32 = mcell.c;
+    let al: f32 = mcell.alpha;
+    let be: f32 = mcell.beta;
+    let ga: f32 = mcell.gamma;
+    let content = format!("CELL {a} {b} {c} {al} {be} {ga}");
+    if let Err(e) = writeln!(file, "{}", content) {
+        eprintln!("Unable to write CELL to P4P file {}", e);
+    }
+
+    let a: f32 = mcell.a_esu;
+    let b: f32 = mcell.b_esu;
+    let c: f32 = mcell.c_esu;
+    let al: f32 = mcell.alpha_esu;
+    let be: f32 = mcell.beta_esu;
+    let ga: f32 = mcell.gamma_esu;
+    let content = format!("CELLSD {a} {b} {c} {al} {be} {ga}");
+    if let Err(e) = writeln!(file, "{}", content) {
+        eprintln!("Unable to write CELLSD to P4P file {}", e);
+    }
+    if lambda - 0.03 < 0.0 {
+        if let Err(e) = writeln!(file, "{}", SRCED) {
+            eprintln!("Unable to write ED wavelength to P4P file {}", e);
+        }
+    } else if lambda - 0.8 < 0.0 {
+        if let Err(e) = writeln!(file, "{}", SRCMO) {
+            eprintln!("Unable to write MO wavelength to P4P file {}", e);
+        }
+    } else if lambda - 1.6 < 0.0 {
+        if let Err(e) = writeln!(file, "{}", SRCCU) {
+            eprintln!("Unable to write Cu wavelength to P4P file {}", e);
+        }
+    }
 }
 
 fn write_pcf(pcfs: Vec<Pcf>, mcell: &Cell) {
