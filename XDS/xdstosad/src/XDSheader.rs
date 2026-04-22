@@ -98,7 +98,7 @@ impl XDSheader {
     pub fn orgy(&self) -> &f32 {
     	&self.detector.orgy
 	}
-    pub fn S0R(&self) -> [f32; 3] {
+    pub fn angle_dirbeam_rotaxis(&self) -> [f32; 3] {
     	let s0r = self.geometry.dir_beam.rad_sin_cos(&self.geometry.rotaxis);
 	s0r
 	}
@@ -229,6 +229,12 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
             xdsheader.geometry.lambda = r[0];
             continue;
         }
+        if l.contains("!DETECTOR_DISTANCE=") {
+            let mut r: [f32; 1] = [0.0; 1];
+            getnums(l.to_string(), &mut r);
+            xdsheader.geometry.dist = r[0];
+            continue;
+        }
         if l.contains("!INCIDENT_BEAM_DIRECTION=") {
             let mut r: [f32; 3] = [0.0; 3];
             getnums(l.to_string(), &mut r);
@@ -277,6 +283,23 @@ pub fn readheader(filename: &String) -> Option<XDSheader> {
                 Err(_) => panic!("Format error, QY not found in {l}"),
             };
             xdsheader.detector.qy = qy;
+            continue;
+        }
+        // ORGX and ORGY like
+        // !ORGX=    693.43  ORGY=    872.19
+        if l.contains("!ORGX=") {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let orgx = match w[1].trim().parse::<f32>() {
+                Ok(num) => num,
+                Err(_) => panic!("Format error, ORGX not found in {l}"),
+            };
+            xdsheader.detector.orgx = orgx;
+            let orgy = match w[3].trim().parse::<f32>() {
+                Ok(num) => num,
+                Err(_) => panic!("Format error, ORGY not found in {l}"),
+            };
+            xdsheader.detector.orgy = orgy;
+            continue;
         }
     }
     // detector z-direction defined to complete a right-handed coordinate system

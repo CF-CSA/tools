@@ -1,8 +1,9 @@
 use crate::XDSdatum::XDSdatum;
 use crate::XDSheader::XDSheader;
 use crate::XYZ::XYZ;
+use std::f32::consts::PI;
 
-pub fn U_AB(a: XYZ, b: XYZ, c: XYZ) -> [f32; 9] {
+pub fn matrix_u_ab(a: XYZ, b: XYZ, c: XYZ) -> [f32; 9] {
     let mut uab: [f32; 9] = [0.0; 9];
     let astar = crate::XYZ::cross(b, c);
     let bstar = crate::XYZ::cross(c, a);
@@ -43,8 +44,8 @@ pub fn write_xds2sad(filename: String, data: Vec<XDSdatum>, header: XDSheader, d
     // detector normal
     let detz: XYZ = *header.detz();
     // angle between detector normal detz and direct beam
-    let mu = detz.rad_sin_cos(&s0);
-    let uab = U_AB(a, b, c);
+    let mu = detz.rad_sin_cos(&s0)[0] * (180./PI);
+    let uab = matrix_u_ab(a, b, c);
     for s in data {
         let c = s.cosines(uab, &header);
         let xd = 512.0 * s.xd() / (*header.nx() as f32);
@@ -58,8 +59,8 @@ pub fn write_xds2sad(filename: String, data: Vec<XDSdatum>, header: XDSheader, d
             s.h(),
             s.k(),
             s.l(),
-            f * s.I(),
-            f * s.sigI(),
+            f * s.intensity(),
+            f * s.sigintensity(),
             c[0],
             c[1],
             c[2],
@@ -69,7 +70,7 @@ pub fn write_xds2sad(filename: String, data: Vec<XDSdatum>, header: XDSheader, d
             xd,
             yd,
             zd,
-            mu[0],
+            mu,
             sthl
         );
         content += &line;

@@ -24,7 +24,8 @@ pub fn rotate(v: XYZ, axis: XYZ, x_rad: f32) -> XYZ {
     let uvw = cross(v, axis);
     let xyz = cross(axis, uvw);
     let p = f32::sqrt(1. - s * s);
-    let t = -p * f32::sin(x_rad) / f32::sqrt(xyz * xyz);
+    let t = -p * f32::sin(x_rad) / f32::sqrt(uvw * uvw);
+    let p = p * f32::cos(x_rad)/f32::sqrt(xyz*xyz);
     let res = xyz * p + uvw * t + axis * s;
     res
 }
@@ -38,7 +39,7 @@ impl XYZ {
     pub fn uvec(&mut self) -> f32 {
         let me = *self;
         let s = f32::sqrt(me * (*self));
-        *self = (*self) / s;
+        *self = (*self) * 1./s;
         s
     }
     // computes the angle between self and another vector
